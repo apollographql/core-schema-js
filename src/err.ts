@@ -42,7 +42,7 @@ export interface Err {
  *
  *   ...
  *
- *   return ErrBadValue({ expected: 5, got: 99 })
+ *   return ErrBadValue({ expected: 5, got: 99, node: someNode })
  * ```
  * @param code error code
  */
@@ -138,7 +138,7 @@ export function siftValues<T>(results: Result<T>[]): [Err[], T[]] {
 
 /**
  * Sift an array of Result<T>s into all the errors and Ok results,
- * returning [Err[], Ok<T<[]]
+ * returning [Err[], Ok<T>[]]
  *
  * @param results
  */

@@ -1,11 +1,11 @@
-import type { ASTNode, DirectiveLocationEnum, DocumentNode, EnumTypeDefinitionNode, EnumValueNode, FieldDefinitionNode, InputObjectTypeDefinitionNode, InputValueDefinitionNode, InterfaceTypeDefinitionNode, ObjectTypeDefinitionNode, ScalarTypeDefinitionNode, SchemaDefinitionNode, UnionTypeDefinitionNode } from 'graphql'
-import { Spec, } from './spec'
-import { ObjShape, ObjOf, obj, DeserializedShape } from './metadata'
-import ERR, { isOk } from './err'
-import { derive, Get, GetValue } from './data'
-import { asString, AsString, Maybe } from './is'
-import { using, report } from './schema'
-import { documentOf } from './linkage'
+import { ASTNode, DirectiveLocationEnum, DocumentNode, EnumTypeDefinitionNode, EnumValueNode, FieldDefinitionNode, InputObjectTypeDefinitionNode, InputValueDefinitionNode, InterfaceTypeDefinitionNode, ObjectTypeDefinitionNode, ScalarTypeDefinitionNode, SchemaDefinitionNode, UnionTypeDefinitionNode, visit } from 'graphql'
+import { Spec, } from '../spec'
+import { ObjShape, ObjOf, obj, DeserializedShape } from '../metadata'
+import ERR, { isOk } from '../err'
+import { data, derive, Get, GetValue, set } from '../data'
+import { Maybe } from '../is'
+import { using, report } from '../schema'
+import { documentOf } from '../linkage'
 
 const ErrBadMetadata = ERR `BadMetadata` (
   () => `could not read metadata`
@@ -15,10 +15,9 @@ const ErrBadForm = ERR `BadMetadataForm` (
   (props: { name: string }) => `could not read form ${props.name}`
 )
 
-export default layer
+export default directive
 
-export function layer(...spec: AsString) {
-  const specified = Spec.parse(asString(spec))
+export function directive(spec: Spec) {
   return <F extends Forms>(forms: F): Layer<F> => {
     const forKind = new Map<ASTNode["kind"], {
       name: string,
@@ -35,13 +34,12 @@ export function layer(...spec: AsString) {
     }
 
     const nameInDoc = derive <Maybe<string>, DocumentNode>
-      `name of ${specified} in document`
+      `name of ${spec} in document`
       (doc => {
         const requests = using(doc)
         for (const r of requests) {
-          if (r.using.identity === specified.identity &&
-            specified.version.satisfies(r.using.version)) {
-              console.log('name of', specified, '=', r.as ?? r.using.name)
+          if (r.using.identity === spec.identity &&
+            spec.version.satisfies(r.using.version)) {
               return r.as ?? r.using.name
           }
         }
@@ -49,14 +47,20 @@ export function layer(...spec: AsString) {
       })
 
     const all = derive <Bind<F>[], ASTNode>
-      `${specified}` (
-        node => {
-          console.log('looking for', specified, 'in', node.kind, 'we have', [...forKind.keys()])
+      `${spec}` (
+        (node: ASTNode) => {
+          if (node.kind === 'Document') {
+            const output: Bind<F>[] = []
+            visit(node, { enter(node) {
+              if (node.kind !== 'Document') output.push(...all(node))
+            } })
+            return output
+          }
+
           const forms = forKind.get(node.kind)
           if (!forms) return []
 
           const self = nameInDoc(documentOf(node))
-          console.log('name is=', self)
           const output: Bind<F>[] = []
           for (const dir of directivesOf(node)) {
             if (dir.name.value !== self) continue
@@ -68,14 +72,15 @@ export function layer(...spec: AsString) {
                 found = { form, result: res }
                 break
               }
-              errors.push(ErrBadForm({ name: form.name }, res))
+              errors.push(ErrBadForm({ name: form.name, node: dir }, res))
             }
             if (!found) {
-              report(ErrBadMetadata({}, ...errors))
+              report(ErrBadMetadata({ node: dir }, ...errors))
               continue
             }
             output.push({
               is: found.form.name,
+              on: node,
               [found.form.name]: found.result.ok
             } as any)
           }
@@ -90,7 +95,7 @@ export function layer(...spec: AsString) {
           name,
           Object.assign(
             derive <DeserializedShape<Forms_UnionOf<F>>[], ASTNode>
-            `${specified}#${name}` (node =>
+            `${spec}#${name}` (node =>
               all(node).map(bind => bind[name]).filter(Boolean)
             ),
             structs[name]
@@ -98,7 +103,7 @@ export function layer(...spec: AsString) {
         ])
     )
     
-    return Object.assign(all, {spec: specified}, formsByName) as any
+    return Object.assign(all, {spec: spec}, formsByName) as any
   }
 }
 
@@ -179,94 +184,6 @@ export function repeatable<S extends ObjShape, On extends DirectiveLocationEnum>
 function directivesOf(node: ASTNode) {
   return 'directives' in node ? node.directives ?? [] : []
 }
-
-
-// export interface Layer {
-//   (doc: DocumentNode): (req: Using) => DirectiveVisitor | null
-// }
-
-// export interface DirectiveVisitor {
-//   (directive: DirectiveNode, on: ASTNode, onErr: (...err: Err[]) => void): void
-// }
-
-// export type Extract<T=any> = Specified<T> & Deserialize<T, ASTNode>
-
-// const ErrBadMetadata = ERR `BadMetadata` (
-//   () => `could not read metadata`
-// )
-
-// const ErrBadForm = ERR `BadMetadataForm` (
-//   (props: { name: string }) => `could not read form ${props.name}`
-// )
-
-// export default function lyr(...md: Extract[]) {
-//   const byId = new Map<string, Extract[]>()
-//   for (const d of md) {
-//     const id = d.spec.identity
-//     if (!byId.has(id)) byId.set(id, [])
-//     byId.get(id)!.push(d)
-//   }
-//   return (doc: DocumentNode) => (req: Using): DirectiveVisitor | null => {
-//     const active = (byId.get(req.using.identity) ?? [])
-//       .filter(x => x.spec.version.satisfies(req.using.version))
-//     if (!active.length) return null
-
-//     const byName = new Map<string, Map<ASTNode["kind"], Extract[]>>()
-//     for (const item of active) {
-//       add(item,
-//         forName(`${name(req)}__${item.name}`),
-//         forName(`${name(req)}`))
-//     }
-
-//     return visit
-
-//     function visit(directive: DirectiveNode, on: ASTNode, onErr: (...err: Err[]) => void) {
-//       const byKind = byName.get(directive.name.value)
-//       if (!byKind) return
-//       const extractors = byKind.get(on.kind)
-//       if (!extractors) return
-//       let succeeded = false
-//       let errs = []
-//       for (const md of extractors) {
-//         const result = md.deserialize(directive)
-//         if (isOk(result)) {
-//           succeeded = true
-//           if (md.repeatable)
-//             get(on, md.forNode).push(result.ok)
-//           else
-//             set(on, md.forNode, result.ok)
-//           md.forDoc(doc).push({
-//             data: result.ok,
-//             directive,
-//             on,
-//           })
-//           break
-//         }
-//         errs.push(ErrBadForm({ name: md.name, node: directive }, result))
-//       }
-//       if (!succeeded) onErr(ErrBadMetadata({ node: directive }, ...errs))
-//     }
-
-//     function forName(name: string): Map<ASTNode["kind"], Extract[]> {
-//       const existing = byName.get(name)
-//       if (existing) return existing
-//       const created = new Map
-//       byName.set(name, created)
-//       return created
-//     }
-
-//     function add(item: Extract, ...indexes: Map<ASTNode["kind"], Extract[]>[]) {
-//       for (const loc of item.on) {
-//         const kind = locationToKind[loc]!
-//         for (const byKind of indexes) {
-//           if (!byKind.has(kind)) byKind.set(kind, [])
-//           byKind.get(kind)!.push(item)
-//         }
-//       }
-//     }
-//   }
-// }
-
 
 type NodeFor<L extends DirectiveLocationEnum>
   =

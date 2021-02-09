@@ -19,7 +19,6 @@
 import { URL } from 'url'
 import { asResultFn, isErr, ok, Result } from './err'
 import { asString, AsString } from './is'
-import { Coder, customScalar, CustomScalarOf } from './metadata'
 import { Version } from './version'
 
 import ERR from './err'
@@ -69,25 +68,9 @@ export class Spec {
   toString() {
     return `${this.identity}/${this.version}`
   }
-
-  scalar(...nameInput: AsString) {
-    const name = asString(nameInput)
-    return <C extends Coder<any>>(coder: C): CustomScalarOf<C> & SpecifiedScalar => {
-      return Object.assign(customScalar(coder), {
-        spec: this,
-        name,
-      }) as any
-    }
-  }
 }
-
 
 const parseUrl = asResultFn((url: string) => new URL(url))
-
-export interface SpecifiedScalar {
-  readonly spec: Spec
-  readonly name: string
-}
 
 export const spec = (...input: AsString) =>
   Spec.parse(asString(input))

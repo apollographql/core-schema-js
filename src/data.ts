@@ -42,7 +42,9 @@ export function col<T, S=any>(...desc: AsString): Get<T, S> & Set<T, S> {
   const symbol = Symbol(description)
   return {
     [getValue]: (source: S, defaultValue?: any) =>
-      symbol in source ? (source as any)[symbol] : defaultValue,
+      (source &&
+        typeof source === 'object' &&
+        symbol in source) ? (source as any)[symbol] : defaultValue,
     [setValue]: (source: S, value: T) =>
       (source as any)[symbol] = value,
   }
