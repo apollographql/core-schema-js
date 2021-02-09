@@ -5,7 +5,7 @@ import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
 import { asSource, AsSource, Source } from './source-map'
 import { derive, set } from './data'
 import { customScalar, Deserialized, metadata, obj, Str } from './metadata'
-import { sourceOf, documentOf } from './linkage'
+import { sourceOf, documentOf, pathOf } from './linkage'
 import { Spec, spec } from './spec'
 import { Must } from './is'
 
@@ -57,23 +57,6 @@ export class Schema {
   get document() { return document(this.source) }
   get errors() { return errors(this.document) }
   get schema() { return schemaDef(this.document) }
-
-  // attach(...layers: Layer[]): this {
-  //   const onErr = addError(this.document)
-  //   const visitors = this.using.flatMap(
-  //     req =>
-  //       layers.map(layer => layer(this.document)(req)!)
-  //   ).filter(Boolean)
-  //   visit(this.document, {
-  //     Directive(node, _key, ancestors: any) {
-  //       for (const v of visitors) {
-  //         v(node, ancestors[ancestors.length - 1], onErr)
-  //       }
-  //     }
-  //   })
-  //   return this
-  // }
-
   
   get using() { return using(this.document) }
 
@@ -117,9 +100,10 @@ const addError = derive <(...err: Err[]) => void, DocumentNode>
  */
 function link(doc: DocumentNode, source: Source) {
   visit(doc, {
-    enter(node) {
+    enter(node, _key, _parent, path) {
       set(node, documentOf, doc)
       set(node, sourceOf, source)
+      set(node, pathOf, [...path])
     }
   })
   return doc

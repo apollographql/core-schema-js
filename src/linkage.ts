@@ -5,7 +5,8 @@ import type { Source } from "./source-map"
 /**
  * Source for document
  */
-export const sourceOf = data <Source, any> `Source location`
+export const sourceOf = data <Source, any>
+  `Source location`
 
 /**
  * Document of node
@@ -13,3 +14,8 @@ export const sourceOf = data <Source, any> `Source location`
 export const documentOf = data <DocumentNode, ASTNode>
   `Document for node`
 
+/**
+ * Path to AST Node
+ */
+export const pathOf = data <readonly (string | number)[], ASTNode>
+  `Path to node`

@@ -27,6 +27,8 @@ export const ErrReadNaN = ERR `ReadNaN`
 export const ErrReadIntRange = ERR `ReadIntRange`
   ((props: { repr: string }) => `"${props.repr}" out of range for integers`)
 
+export const ErrReadList = ERR `ReadList` (() => `error reading list`)
+
 /**
  * Key-ValueNode mapping extracted from a DirectiveNode or ObjectValueNode
  */
@@ -90,7 +92,6 @@ export type Serde<T, N extends ASTNode>
   = Serialize<T, N> & Deserialize<T, N>
 
 const isNullNode = (n: any): n is NullValueNode => n.kind === 'NullValue'
-
 
 type InputNodeOf<D extends Deserialize<any, any>> =
   D extends Deserialize<any, infer I>
@@ -188,9 +189,10 @@ export function scalar<T, K extends ScalarKind>(
       } as any
     },
     (node: Maybe<ValueNode>) => {
+      if (!node || isNullNode(node)) return ok(null, node)      
       if (node?.kind === kind && hasValue(node))
         return decode(node.value)
-      return ok(null, node)
+      return ErrBadReadNode({ expected: [kind], node })
     }
   )
 }
@@ -280,7 +282,6 @@ function must<S extends Slot<any, any, any>>(type: S):
   })
 }
 
-const EReadList = ERR `ReadList` (() => `error reading list`)
 
 export function list<T, V extends ValueNode>(type: Serde<T, V>) {
   return slot<T[], ListValueNode>(
@@ -292,7 +293,7 @@ export function list<T, V extends ValueNode>(type: Serde<T, V>) {
       const results = ((node as ListValueNode)?.values ?? [])
         .map(v => type.deserialize(v as any))
       const [errors, values] = siftValues(results)
-      if (errors.length) return EReadList({ node: node! }, ...errors)
+      if (errors.length) return ErrReadList({ node: node! }, ...errors)
       return ok(values, node)
     }
   )
