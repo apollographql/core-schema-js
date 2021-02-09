@@ -1,5 +1,5 @@
 import { one, directive } from "../bind";
-import { Int, Str } from "../serde";
+import { Int, Str, must, struct, list } from "../serde";
 import { spec } from "../spec";
 import { fromSource, errors } from "../schema";
 
@@ -13,20 +13,21 @@ describe("Layers", () => {
 
       type Example {
         field: Int @someSpec(message: "hello")
-        another: String @someSpec(message: "goodbye") @someSpec(value: 42)
+        another: String @someSpec(message: "goodbye") @someSpec(value: 42, items: [0, 1, 2])
       }
     `.value;
 
     const someSpec = directive(spec`https://example.com/someSpec/v1.0`)({
       FieldAnnotation: one(
         {
-          message: Str.must,
+          message: must(Str),
         },
         "FIELD_DEFINITION"
       ),
       NumAnnotation: one(
         {
-          value: Int.must,
+          value: must(Int),
+          items: must(list(must(Int))),
         },
         "FIELD_DEFINITION"
       ),
@@ -63,6 +64,11 @@ describe("Layers", () => {
         },
         Object {
           "NumAnnotation": Object {
+            "items": Array [
+              0,
+              1,
+              2,
+            ],
             "value": 42,
           },
           "is": "NumAnnotation",

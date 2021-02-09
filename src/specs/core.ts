@@ -1,4 +1,4 @@
-import { Str, Bool } from '../serde'
+import { Str, Bool, must } from '../serde'
 import { spec, Spec } from '../spec'
 import { DirectiveLocation } from 'graphql'
 import { scalar, directive, one, repeatable } from '../bind'
@@ -9,10 +9,10 @@ export const SpecUrl = scalar(core) ('SpecUrl', Spec)
 
 export default directive(core) ({
   Using: repeatable({
-    using: SpecUrl.must,
+    using: must(SpecUrl),
     as: Str,  
   }, 'SCHEMA'),
   Export: one({
-    export: Bool.must
+    export: must(Bool),
   }, ...Object.values(DirectiveLocation))
 })

@@ -1,6 +1,6 @@
 import { ASTNode, DirectiveLocationEnum, DocumentNode, EnumTypeDefinitionNode, EnumValueNode, FieldDefinitionNode, InputObjectTypeDefinitionNode, InputValueDefinitionNode, InterfaceTypeDefinitionNode, ObjectTypeDefinitionNode, ScalarTypeDefinitionNode, SchemaDefinitionNode, UnionTypeDefinitionNode, visit } from 'graphql'
 import { Spec, } from '../spec'
-import { ObjShape, ObjOf, obj, DeserializedShape } from '../serde'
+import { Shape, Struct, struct, Shape_DeTypeOf } from '../serde'
 import ERR, { isOk } from '../err'
 import { derive, Get, GetFn } from '../data'
 import { Maybe } from '../is'
@@ -22,11 +22,11 @@ export function directive(spec: Spec) {
     const forKind = new Map<ASTNode["kind"], {
       name: string,
       form: Form,
-      read: ObjOf<Forms_UnionOf<F>>
+      read: Struct<Forms_UnionOf<F>>
     }[]>()
     const structs: any = {}
     for (const [name, form] of Object.entries(forms)) {
-      const read = structs[name] = obj(form.shape)
+      const read = structs[name] = struct(form.shape)
       form.nodeKinds.forEach(kind =>
         getOrInsertWith(forKind, kind, () => [])
           .push({ name, form, read })
@@ -95,7 +95,7 @@ export function directive(spec: Spec) {
         .map(name => [
           name,
           Object.assign(
-            derive <DeserializedShape<Forms_UnionOf<F>>[], ASTNode>
+            derive <Shape_DeTypeOf<Forms_UnionOf<F>>[], ASTNode>
             `${spec}#${name}` (node =>
               all(node).map(bind => bind[name]).filter(Boolean)
             ),
@@ -113,13 +113,13 @@ export type Layer<F extends Forms> = { spec: Spec }
   & GetFn<Bind<F>[], ASTNode, []>
   & {
       [name in keyof F]: 
-        Get<DeserializedShape<Form_ShapeOf<F[name]>>[],
+        Get<Shape_DeTypeOf<Form_ShapeOf<F[name]>>[],
             ASTNode,
             []> &
-        GetFn<DeserializedShape<Form_ShapeOf<F[name]>>[],
+        GetFn<Shape_DeTypeOf<Form_ShapeOf<F[name]>>[],
             ASTNode,
             []> &
-        ObjOf<Form_ShapeOf<F[name]>>
+        Struct<Form_ShapeOf<F[name]>>
     }
 
 /**
@@ -137,7 +137,7 @@ export type Bind<F extends Forms> = {
 export type PickDeShape<F extends Forms, pick extends keyof F> = {
   [k in keyof F]:
     k extends pick
-      ? DeserializedShape<Form_ShapeOf<F[k]>>
+      ? Shape_DeTypeOf<Form_ShapeOf<F[k]>>
       : never
 }
 
@@ -149,7 +149,7 @@ function getOrInsertWith<K, V>(map: Map<K, V>, key: K, fn: (key: K) => V): V {
   return created
 }
 
-export interface Form<S extends ObjShape=any> {
+export interface Form<S extends Shape=any> {
   shape: S
   nodeKinds: ASTNode["kind"][]
   repeatable: boolean
@@ -166,7 +166,7 @@ export interface Forms<F=Form> {
 
 export type Forms_UnionOf<F extends Forms> = Form_ShapeOf<F[keyof F]>
 
-export function one<S extends ObjShape, On extends DirectiveLocationEnum>(shape: S, ...on: On[]): Form<S> {
+export function one<S extends Shape, On extends DirectiveLocationEnum>(shape: S, ...on: On[]): Form<S> {
   return {
     shape,
     nodeKinds: on.map(locToKind),
@@ -174,7 +174,7 @@ export function one<S extends ObjShape, On extends DirectiveLocationEnum>(shape:
   }
 }
 
-export function repeatable<S extends ObjShape, On extends DirectiveLocationEnum>(shape: S, ...on: On[]): Form<S> {
+export function repeatable<S extends Shape, On extends DirectiveLocationEnum>(shape: S, ...on: On[]): Form<S> {
   return {
     shape,
     nodeKinds: on.map(locToKind),
