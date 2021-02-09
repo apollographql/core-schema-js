@@ -1,7 +1,7 @@
 import { ASTNode, DocumentNode } from 'graphql'
 import { AsString, asString, Fn, FnPropsOf, Maybe } from './is'
 import { documentOf, sourceOf } from './linkage'
-import sourceMap, { Source, SourceMap } from './source-map'
+import sourceMap, { Source, SourceMap } from './source'
 
 /**
  * An Err is an error on a GraphQL document.

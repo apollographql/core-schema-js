@@ -10,13 +10,9 @@ export interface Source {
   text: string
 }
 
-export interface SourceMap {
-  (from?: Location | ASTNode): string
-}
-
 export type AsSource = AsString | [Source]
 
-export function asSource(source: AsSource): Source {
+export function source(...source: AsSource): Source {
   if (isAsString(source)) return {
     src: '<anonymous>',
     text: asString(source)
@@ -25,14 +21,17 @@ export function asSource(source: AsSource): Source {
   return source[0]
 }
 
+export interface SourceMap {
+  (from?: Location | ASTNode): string
+}
+
 const isNode = (o: any): o is ASTNode => typeof o?.kind === 'string'
 const locationFrom = (from?: Location | ASTNode): Maybe<Location> =>
   (from && isNode(from)) ? from.loc : from
 
 export default function sourceMap(...input: AsSource | [undefined] | []): SourceMap {
   if (isEmpty(input) || !input[0]) return nullMap
-  const source = asSource(input)
-  const { src, text } = source
+  const { src, text } = source(...input)
   const endings = [...indexesOf(text)]
 
   return describe

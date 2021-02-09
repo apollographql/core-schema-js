@@ -1,34 +1,48 @@
 import ERR, { Err, siftResults } from './err'
-import { parse as parseSchema, visit } from 'graphql'
+import { ASTNode, parse as parseSchema, visit } from 'graphql'
 import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
 
-import { asSource, AsSource, Source } from './source-map'
-import { derive, set } from './data'
+import type { AsSource, Source } from './source'
+import { source } from './source'
+import { derive, get, Get, set } from './data'
 import { customScalar, Deserialized, metadata, obj, Str } from './metadata'
-import { sourceOf, documentOf, pathOf } from './linkage'
+import { sourceOf, documentOf, pathOf, ensureDocumentOf } from './linkage'
 import { Spec, spec } from './spec'
 import { Must } from './is'
+import { Pipe } from './pipe'
 
-const ErrNoSchemas = ERR `NoSchemas` (() =>
+export const ErrNoSchemas = ERR `NoSchemas` (() =>
   `no schema definition found`)
 
-const ErrExtraSchema = ERR `ExtraSchema` (() =>
+export const ErrExtraSchema = ERR `ExtraSchema` (() =>
   `extra schema definition ignored`)
 
-const ErrNoCore = ERR `NoCore` (() =>
+export const ErrNoCore = ERR `NoCore` (() =>
   `@core(using: "${core}") directive required on schema definition`)
 
-const ErrCoreSpecIdentity = ERR `NoCoreSpecIdentity` ((props: { got: string }) =>
+export const ErrCoreSpecIdentity = ERR `NoCoreSpecIdentity` ((props: { got: string }) =>
   `the first @core directive must reference "${core.identity}", got: "${props.got}"`)
 
-
-const ErrDocumentNotOk = ERR `DocumentNotOk` (() =>
+export const ErrDocumentNotOk = ERR `DocumentNotOk` (() =>
   `one or more errors on document`)
+
+export default fromSource
+
+/**
+ * Helper for quickly creating a Pipe<DocumentNode> from a source. 
+ * 
+ * @param asSource 
+ */
+export function fromSource(...asSource: AsSource): Pipe<DocumentNode> {
+  return Pipe.from(source(...asSource))
+    .map(document)
+    .map(attach(using))
+}
 
 /**
  * Document for source
  */
-const document = derive <DocumentNode, Source>
+export const document = derive <DocumentNode, Source>
   `Document for source` (src => link(parseSchema(src.text), src))
 
 /**
@@ -47,50 +61,35 @@ export function report(...errs: Err[]) {
 export const errors = derive <Err[], DocumentNode>
   `Document errors` (() => [])
 
-export class Schema {
-  public static parse(...input: AsSource): Schema {
-    return new Schema(asSource(input))
+/**
+ * Attach metadata layers to a document.
+ * 
+ * Calling this isn't required, but ensures that the provided layers are
+ * scanned completely and any resulting errors are caught.
+ * 
+ * @param doc 
+ */
+export const attach = (...layers: Get<any, DocumentNode, any>[]) =>
+  (doc: DocumentNode): DocumentNode => {
+    layers.forEach(l => get(doc, l))
+    return doc
   }
 
-  constructor(public readonly source: Source) { }
-
-  get document() { return document(this.source) }
-  get errors() { return errors(this.document) }
-  get schema() { return schemaDef(this.document) }
-  
-  get using() { return using(this.document) }
-
-  ok(): ValidSchema {
-    // Bootstrap if we haven't already
-    using(this.document)
-    const err = errors(this.document)
-    if (err.length)
-      throw ErrDocumentNotOk({
-        node: this.document,
-        source: this.source
-      }, ...err).toError()
-    return this as ValidSchema
+/**
+ * Ensure that the document contains no errors. Returns the document
+ * if successful, throws ErrDocumentNotOk otherwise.
+ * 
+ * @param doc
+ */
+export function ensure(doc: DocumentNode): DocumentNode {
+  const errs = errors(doc)
+  if (errs.length) {
+    throw ErrDocumentNotOk({
+      node: doc,
+    }, ...errs).toError()
   }
+  return doc
 }
-
-export default Schema
-
-export interface ValidSchema extends Schema {
-  readonly schema: SchemaDefinitionNode
-}
-
-const addError = derive <(...err: Err[]) => void, DocumentNode>
-  `Report a document error` (
-    doc => {
-      const src = sourceOf(doc)
-      const docErrors = errors(doc)
-      return (...errs: Err[]) => {
-        for (const err of errs) {
-          ;(err as any).source = src
-          docErrors.push(err)
-        }
-      }
-    })
 
 /**
  * Attach a reference to the document from every node in the doc. These
@@ -113,7 +112,6 @@ const schemaDef =
   derive <SchemaDefinitionNode | undefined, DocumentNode>
     `The schema definition node` (doc => {
       let schema: SchemaDefinitionNode | undefined = void 0
-      const report = addError(doc)
       for (const def of doc.definitions) {
         if (def.kind === 'SchemaDefinition') {
           if (!schema) {
@@ -169,8 +167,6 @@ export const using =
       r.node && r.node.kind === 'Directive' &&
       r.node.name.value === (r.ok.as ?? core.name))
     const coreName = (coreReq?.ok.as ?? core.name)
-
-    const report = addError(doc)
 
     if (!coreReq) {
       report(ErrNoCore({ doc, node: schema }))

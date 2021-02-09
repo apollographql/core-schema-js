@@ -19,7 +19,8 @@ export interface SetValue<T, S=any> {
 }
 
 export interface GetValue<T, S=any, Default=undefined> {
-  <D=Default>(source: S, defaultValue?: D): T | D
+  <D=Default>(source: S, defaultValue: D): T | D
+  (source: S): T | Default
 }
 
 type Set_TypeOf<S extends Set<any>>
