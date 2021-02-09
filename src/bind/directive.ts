@@ -2,10 +2,10 @@ import { ASTNode, DirectiveLocationEnum, DocumentNode, EnumTypeDefinitionNode, E
 import { Spec, } from '../spec'
 import { ObjShape, ObjOf, obj, DeserializedShape } from '../metadata'
 import ERR, { isOk } from '../err'
-import { data, derive, Get, GetValue, set } from '../data'
+import { derive, Get, GetValue } from '../data'
 import { Maybe } from '../is'
 import { using, report } from '../schema'
-import { documentOf } from '../linkage'
+import { ensureDocumentOf } from '../linkage'
 
 const ErrBadMetadata = ERR `BadMetadata` (
   () => `could not read metadata`
@@ -57,10 +57,11 @@ export function directive(spec: Spec) {
             return output
           }
 
+          const doc = ensureDocumentOf(node)
           const forms = forKind.get(node.kind)
           if (!forms) return []
 
-          const self = nameInDoc(documentOf(node))
+          const self = nameInDoc(doc)
           const output: Bind<F>[] = []
           for (const dir of directivesOf(node)) {
             if (dir.name.value !== self) continue
