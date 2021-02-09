@@ -1,4 +1,4 @@
-import { Str, Bool } from '../metadata'
+import { Str, Bool } from '../serde'
 import { spec, Spec } from '../spec'
 import { DirectiveLocation } from 'graphql'
 import { scalar, directive, one, repeatable } from '../bind'

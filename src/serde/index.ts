@@ -1,12 +1,13 @@
-import { ValueNode, DirectiveNode, EnumValueNode,
+import { ValueNode, EnumValueNode,
   FloatValueNode, IntValueNode, ListValueNode,
-  ObjectValueNode, StringValueNode, NullValueNode,
-  BooleanValueNode, ASTNode, ObjectFieldNode, ArgumentNode }
+  StringValueNode, NullValueNode,
+  BooleanValueNode, ASTNode }
   from 'graphql'
 
-import {derive} from './data'
-import ERR, { asResultFn, isErr, isOk, ok, Result, siftValues } from './err'
-import { Fn, Maybe, Must } from './is'
+import ERR, { asResultFn, isErr, isOk, ok, Result, siftValues } from '../err'
+import { Fn, Maybe, Must } from '../is'
+
+export { metadata } from './metadata'
 
 export const ErrReadField = ERR `ReadField` (
   (props: { name: string }) => `could not read field "${props.name}"`
@@ -28,38 +29,6 @@ export const ErrReadIntRange = ERR `ReadIntRange`
   ((props: { repr: string }) => `"${props.repr}" out of range for integers`)
 
 export const ErrReadList = ERR `ReadList` (() => `error reading list`)
-
-/**
- * Key-ValueNode mapping extracted from a DirectiveNode or ObjectValueNode
- */
-export interface Metadata {
-  [key: string]: ValueNode
-}
-
-/**
- * Metadata for an AST node
- */
-export const metadata = derive <Metadata, DirectiveNode | ObjectValueNode>
-  `Key value mapping over arguments or fields` (target => {
-    const args = target.kind === 'Directive' ? target.arguments : target.fields
-    const meta: any = {}
-    for (const arg of args ?? []) {
-      meta[arg.name.value] = arg.value
-    }
-    return meta
-  })
-
-
-/**
- * Return true iff o can carry metadata (it is a DirectiveNode or
- * ObjectValueNode).
- *
- * @param o input
- */
-export function isMetadataTarget(o: any): o is DirectiveNode | ObjectValueNode {
-  const kind = o?.kind
-  return kind === 'Directive' || kind === 'ObjectValue'
-}
 
 export type Kind = ASTNode["kind"]
 export type NodeForKind<K extends Kind> = ASTNode & { kind: K }
@@ -299,75 +268,9 @@ export function list<T, V extends ValueNode>(type: Serde<T, V>) {
   )
 }
 
-
-
-export interface ObjShape {
-  [key: string]: Serde<any, any>
-}
-
-export type DeserializedShape<S extends ObjShape> = {
-  [K in keyof S]: Deserialized<S[K]>
-}
-
-export type ObjOf<S extends ObjShape> = Slot<
-  Maybe<DeserializedShape<S>>,
-  ObjectValueNode | NullValueNode | DirectiveNode,
-  ObjectValueNode | NullValueNode
->
-
-export function obj<S extends ObjShape>(shape: S): ObjOf<S> {
-  return slot(
-    (value: DeserializedShape<S>) => {
-      if (!value) return NullValue
-      return {
-        kind: 'ObjectValue',
-        fields: serializeFields(shape, value, 'ObjectField')
-      }
-    },
-    (node: Maybe<ObjectValueNode | NullValueNode | DirectiveNode>) => {
-      if (!isMetadataTarget(node))
-        return ErrBadReadNode({ node, expected: ['ObjectValueNode', 'DirectiveNode'] })
-      const md = metadata(node)
-      const results = Object.entries(shape)
-        .map(([name, type]) => ({
-          name,
-          field: md[name],
-          result: type.deserialize(md[name])
-        }))
-      const errors = []
-      const entries = []
-      for (const {name, field, result} of results) {
-        if (isErr(result))
-          errors.push(ErrReadField({
-            name,
-            node: field
-          }, result))
-        if (isOk(result))
-          entries.push([name, result.ok])
-      }
-      if (errors.length) return ErrReadObject({ node }, ...errors)
-      return ok(Object.fromEntries(entries), node)
-    }
-  )
-}
-
-function serializeFields<
-  S extends ObjShape,
-  K extends 'ObjectField' | 'Argument'
->(
-  shape: S,
-  value: DeserializedShape<S>,
-  kind: K
-): K extends 'ObjectField' ? ObjectFieldNode[] : ArgumentNode[] {
-  return Object.entries(shape)
-    .map(([name, type]) => ({
-      kind,
-      name: { kind: 'Name' as 'Name', value: name },
-      value: type.serialize(value[name])
-    })) as any
-}
-
-const NullValue = { kind: 'NullValue' as 'NullValue' }
+export const NullValue = { kind: 'NullValue' as 'NullValue' }
 
 const hasValue = (o: any): o is { value: string } =>
   typeof o?.value !== 'undefined'
+
+export * from './struct'

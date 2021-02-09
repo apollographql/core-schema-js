@@ -1,4 +1,4 @@
-import { Coder, customScalar, CustomScalarOf } from '../metadata'
+import { Coder, customScalar, CustomScalarOf } from '../serde'
 import { Spec } from '../spec'
 import type { Specified } from '.'
 
