@@ -1,8 +1,8 @@
 import { ASTNode, DirectiveLocationEnum, DocumentNode, EnumTypeDefinitionNode, EnumValueNode, FieldDefinitionNode, InputObjectTypeDefinitionNode, InputValueDefinitionNode, InterfaceTypeDefinitionNode, ObjectTypeDefinitionNode, ScalarTypeDefinitionNode, SchemaDefinitionNode, UnionTypeDefinitionNode, visit } from 'graphql'
 import { Spec, } from '../spec'
-import { ObjShape, ObjOf, obj, DeserializedShape } from '../metadata'
+import { ObjShape, ObjOf, obj, DeserializedShape } from '../serde'
 import ERR, { isOk } from '../err'
-import { derive, Get, GetValue } from '../data'
+import { derive, Get, GetFn } from '../data'
 import { Maybe } from '../is'
 import { using, report } from '../schema'
 import { ensureDocumentOf } from '../linkage'
@@ -110,13 +110,13 @@ export function directive(spec: Spec) {
 
 export type Layer<F extends Forms> = { spec: Spec }
   & Get<Bind<F>[], ASTNode, []>
-  & GetValue<Bind<F>[], ASTNode, []>
+  & GetFn<Bind<F>[], ASTNode, []>
   & {
       [name in keyof F]: 
         Get<DeserializedShape<Form_ShapeOf<F[name]>>[],
             ASTNode,
             []> &
-        GetValue<DeserializedShape<Form_ShapeOf<F[name]>>[],
+        GetFn<DeserializedShape<Form_ShapeOf<F[name]>>[],
             ASTNode,
             []> &
         ObjOf<Form_ShapeOf<F[name]>>

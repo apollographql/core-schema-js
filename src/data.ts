@@ -4,21 +4,21 @@ const getValue = Symbol('Get column value')
 const setValue = Symbol('Set column value')
 
 export interface Set<T, S=any> {
-  [setValue]: SetValue<T, S>
+  [setValue]: SetFn<T, S>
 }
 
 export interface Get<T, S=any, Default=undefined> {
-  [getValue]: GetValue<T, S, Default>
+  [getValue]: GetFn<T, S, Default>
 }
 
 export type Data<T, S=any, Default=undefined>
   = Get<T, S, Default> & Set<T, S>
 
-export interface SetValue<T, S=any> {
-  (source: S, value: T): void  
+export interface SetFn<T, S=any> {
+  (source: S, value: T): void
 }
 
-export interface GetValue<T, S=any, Default=undefined> {
+export interface GetFn<T, S=any, Default=undefined> {
   <D=Default>(source: S, defaultValue: D): T | D
   (source: S): T | Default
 }
@@ -51,7 +51,7 @@ export function col<T, S=any>(...desc: AsString): Get<T, S> & Set<T, S> {
   }
 }
 
-export function data<T, S=any>(...desc: AsString): Get<T, S> & Set<T, S> & GetValue<T, S> {
+export function data<T, S=any>(...desc: AsString): Get<T, S> & Set<T, S> & GetFn<T, S> {
   const column = col <T, S> (...desc)
   return Object.assign(column[getValue], column)
 }
@@ -59,7 +59,7 @@ export function data<T, S=any>(...desc: AsString): Get<T, S> & Set<T, S> & GetVa
 const NotFound = {}
 export function derive<T, S=any>(...desc: AsString) {
   const column = col(...desc)
-  return (fn: (source: S) => T): Get<T, S, T> & GetValue<T, S, T> => {
+  return (fn: (source: S) => T): Get<T, S, T> & GetFn<T, S, T> => {
     const resolver = {
       [getValue]: (source: S) => {
         const existing = column[getValue](source, NotFound)

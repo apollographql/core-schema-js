@@ -1,11 +1,11 @@
 import { one, directive } from "../bind";
-import { Str } from "../metadata";
+import { Int, Str } from "../serde";
 import { spec } from "../spec";
-import { fromSource, errors } from '../schema';
+import { fromSource, errors } from "../schema";
 
 describe("Layers", () => {
   it("bind implementations to specifications", () => {
-    const schema = fromSource `
+    const schema = fromSource`
       schema
         @core(using: "https://lib.apollo.dev/core/v0.1")
         @core(using: "https://example.com/someSpec/v1.0")
@@ -13,14 +13,20 @@ describe("Layers", () => {
 
       type Example {
         field: Int @someSpec(message: "hello")
-        another: String @someSpec(message: "goodbye")
+        another: String @someSpec(message: "goodbye") @someSpec(value: 42)
       }
-    `.value
+    `.value;
 
     const someSpec = directive(spec`https://example.com/someSpec/v1.0`)({
       FieldAnnotation: one(
         {
           message: Str.must,
+        },
+        "FIELD_DEFINITION"
+      ),
+      NumAnnotation: one(
+        {
+          value: Int.must,
         },
         "FIELD_DEFINITION"
       ),
@@ -53,6 +59,13 @@ describe("Layers", () => {
             "message": "goodbye",
           },
           "is": "FieldAnnotation",
+          "on": FieldDefinition <definitions/1/fields/1>,
+        },
+        Object {
+          "NumAnnotation": Object {
+            "value": 42,
+          },
+          "is": "NumAnnotation",
           "on": FieldDefinition <definitions/1/fields/1>,
         },
       ]

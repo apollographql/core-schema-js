@@ -1,12 +1,12 @@
 import ERR, { Err, siftResults } from './err'
-import { ASTNode, parse as parseSchema, visit } from 'graphql'
+import { parse as parseSchema, visit } from 'graphql'
 import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
 
 import type { AsSource, Source } from './source'
 import { source } from './source'
 import { derive, get, Get, set } from './data'
-import { customScalar, Deserialized, metadata, obj, Str } from './metadata'
-import { sourceOf, documentOf, pathOf, ensureDocumentOf } from './linkage'
+import { customScalar, Deserialized, metadata, obj, Str } from './serde'
+import { sourceOf, documentOf, pathOf } from './linkage'
 import { Spec, spec } from './spec'
 import { Must } from './is'
 import { Pipe } from './pipe'
@@ -154,7 +154,7 @@ export const using =
     // the name of @core within this document.
     const [errs, okays] = siftResults(
       (schema.directives ?? [])
-        .filter(d => 'using' in metadata(d))
+        .filter(d => metadata(d).has('using'))
         .map(bootstrapReq.deserialize)
     )
 
