@@ -1,15 +1,15 @@
 import { ObjectValueNode, NullValueNode, DirectiveNode, ObjectFieldNode, ArgumentNode } from "graphql"
 import { Maybe } from "graphql/jsutils/Maybe"
 import ERR, { isErr, isOk, ok } from "../err"
-import { De_TypeOf, Serde, Serialize, Deserialize } from "."
+import { De_TypeOf, SerDe, Serialize, Deserialize } from "."
 import { HasMetadata, hasMetadata, metadata } from "./metadata"
 import { ErrWrongNodeKind, NullValue } from './nodes'
 
 /**
- * Shapes are JS objects mapping between field names and Serdes.
+ * Shapes are JS objects mapping between field names and SerDes.
  */
 export interface Shape {
-  [key: string]: Serde
+  [key: string]: SerDe
 }
 
 export type Shape_DeTypeOf<S extends Shape> = {
