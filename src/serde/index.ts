@@ -6,6 +6,7 @@ export * from './list'
 export * from './struct'
 export * from './scalar'
 export * from './nullability'
+export * from './one-of'
 
 /**
  * `SerDe<T, N>` can `serialize` some value type `T` into some node type `N` and
@@ -41,16 +42,16 @@ export type De_TypeOf<S extends Deserialize<any, any>> =
     : never
 
 export type Ser_TypeOf<S extends Serialize<any, any>> =
-  S extends Serialize<any, infer N>
-    ? N
+  S extends Serialize<infer T, any>
+    ? T
     : never
 
 export type De_NodeOf<D extends Deserialize<any, any>> =
-  D extends Deserialize<any, infer I>
-    ? I
+  D extends Deserialize<any, infer N>
+    ? N
     : never
 
 export type Ser_NodeOf<S extends Serialize<any, any>> =
-    S extends Serialize<any, infer O>
-      ? O
+    S extends Serialize<any, infer N>
+      ? N
       : never

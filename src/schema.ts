@@ -108,7 +108,7 @@ function link(doc: DocumentNode, source: Source) {
   return doc
 }
 
-const schemaDef =
+export const schemaDef =
   derive <SchemaDefinitionNode | undefined, DocumentNode>
     `The schema definition node` (doc => {
       let schema: SchemaDefinitionNode | undefined = void 0

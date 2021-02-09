@@ -5,6 +5,14 @@ import { De_TypeOf, SerDe, Serialize, Deserialize } from '.'
 import { HasMetadata, hasMetadata, metadata } from './metadata'
 import { ErrWrongNodeKind, NullValue } from './nodes'
 
+export const ErrReadField = ERR `ReadField` (
+  (props: { name: string }) => `could not read field "${props.name}"`)
+
+export const ErrReadStruct = ERR `ReadStruct` (
+  () => `could not read struct`)
+
+export default struct
+
 /**
  * Shapes are JS objects mapping between field names and SerDes.
  */
@@ -17,19 +25,13 @@ export type Shape_DeTypeOf<S extends Shape> = {
 }
 
 /**
- * Structs ser/de objects with named fields. They're named "structs"
+ * Structs SerDe objects with named fields. They're named "structs"
  * rather than "objects" because they are a bit more general: namely, they can deserialize
  * from any `HasMetadata` value (`ObjectValueNode`s and `DirectiveNode`s).
  */
 export type Struct<S extends Shape> =
   Serialize<Maybe<Shape_DeTypeOf<S>>, ObjectValueNode | NullValueNode> &
   Deserialize<Maybe<Shape_DeTypeOf<S>>, HasMetadata | NullValueNode>
-
-export const ErrReadField = ERR `ReadField` (
-  (props: { name: string }) => `could not read field "${props.name}"`)
-
-export const ErrReadStruct = ERR `ReadStruct` (
-  () => `could not read struct`)
 
 /**
  * Structs are objects with named fields. They're named "structs" rather than "objects"

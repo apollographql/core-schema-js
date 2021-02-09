@@ -1,37 +1,30 @@
 import { ASTNode, DirectiveLocationEnum, DocumentNode, EnumTypeDefinitionNode, EnumValueNode, FieldDefinitionNode, InputObjectTypeDefinitionNode, InputValueDefinitionNode, InterfaceTypeDefinitionNode, ObjectTypeDefinitionNode, ScalarTypeDefinitionNode, SchemaDefinitionNode, UnionTypeDefinitionNode, visit } from 'graphql'
 import { Spec, } from '../spec'
-import { Shape, Struct, struct, Shape_DeTypeOf } from '../serde'
-import ERR, { isOk } from '../err'
+import { Shape, Struct, struct, Shape_DeTypeOf, oneOf } from '../serde'
+import { isOk } from '../err'
 import { derive, Get, GetFn } from '../data'
 import { Maybe } from '../is'
 import { using, report } from '../schema'
 import { ensureDocumentOf } from '../linkage'
 
-const ErrBadMetadata = ERR `BadMetadata` (
-  () => `could not read metadata`
-)
-
-const ErrBadForm = ERR `BadMetadataForm` (
-  (props: { name: string }) => `could not read form ${props.name}`
-)
-
 export default directive
 
 export function directive(spec: Spec) {
   return <F extends Forms>(forms: F): Layer<F> => {
-    const forKind = new Map<ASTNode["kind"], {
-      name: string,
-      form: Form,
-      read: Struct<Forms_UnionOf<F>>
-    }[]>()
+    const shapesForKind = new Map<ASTNode["kind"], Shape>()
     const structs: any = {}
     for (const [name, form] of Object.entries(forms)) {
       const read = structs[name] = struct(form.shape)
       form.nodeKinds.forEach(kind =>
-        getOrInsertWith(forKind, kind, () => [])
-          .push({ name, form, read })
+        getOrInsertWith(shapesForKind, kind, () => ({} as any))
+          [name] = read
       )
     }
+    
+    const forKind = new Map(
+      [...shapesForKind.entries()]
+        .map(([kind, shape]) => [kind, oneOf(shape)])
+    ) 
 
     const nameInDoc = derive <Maybe<string>, DocumentNode>
       `name of ${spec} in document`
@@ -52,38 +45,26 @@ export function directive(spec: Spec) {
           if (node.kind === 'Document') {
             const output: Bind<F>[] = []
             visit(node, { enter(node) {
-              if (node.kind !== 'Document') output.push(...all(node))
+              if (node.kind !== 'Document')
+                output.push(...all(node))
             } })
             return output
           }
 
           const doc = ensureDocumentOf(node)
-          const forms = forKind.get(node.kind)
-          if (!forms) return []
+          const de = forKind.get(node.kind)
+          if (!de) return []
 
           const self = nameInDoc(doc)
           const output: Bind<F>[] = []
           for (const dir of directivesOf(node)) {
             if (dir.name.value !== self) continue
-            const errors = []
-            let found = null
-            for (const form of forms) {
-              const res = form.read.deserialize(dir)
-              if (isOk(res)) {
-                found = { form, result: res }
-                break
-              }
-              errors.push(ErrBadForm({ name: form.name, node: dir }, res))
-            }
-            if (!found) {
-              report(ErrBadMetadata({ node: dir }, ...errors))
-              continue
-            }
-            output.push({
-              is: found.form.name,
-              on: node,
-              [found.form.name]: found.result.ok
-            } as any)
+            const result = de.deserialize(dir)
+            if (isOk(result)) output.push(
+              Object.assign(result.ok, {
+                on: node
+              }) as Bind<F>)
+            else report(result)            
           }
           // TODO: Validate non-repeatable directives here
           return output
@@ -130,7 +111,7 @@ export type Layer<F extends Forms> = { spec: Spec }
  * { is: 'Using', Using: <using data> }
  */
 export type Bind<F extends Forms> = {
-  [k in keyof F]: { is: k } & PickDeShape<F, k>
+  [k in keyof F]: { is: k, on: ASTNode } & PickDeShape<F, k>
 }[keyof F]
   
 
