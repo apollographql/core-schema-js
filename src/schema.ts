@@ -5,7 +5,7 @@ import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
 import type { AsSource, Source } from './source'
 import { source } from './source'
 import { derive, get, Get, set } from './data'
-import { customScalar, Deserialized, metadata, obj, Str } from './serde'
+import { customScalar, De_TypeOf, metadata, must, struct, Str } from './serde'
 import { sourceOf, documentOf, pathOf } from './linkage'
 import { Spec, spec } from './spec'
 import { Must } from './is'
@@ -132,12 +132,12 @@ const schemaDef =
 
 const core = spec `https://lib.apollo.dev/core/v0.1`
 
-const bootstrapReq = obj({
-  using: customScalar(Spec).must,
+const bootstrapReq = must(struct({
+  using: must(customScalar(Spec)),
   as: Str
-}).must
+}))
 
-type Req = Must<Deserialized<typeof bootstrapReq>>
+type Req = Must<De_TypeOf<typeof bootstrapReq>>
 
 export const using =
   derive <Req[], DocumentNode>
