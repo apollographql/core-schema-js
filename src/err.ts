@@ -57,7 +57,7 @@ export default function ERR(...code: AsString) {
       },
       message: {
         get() {
-          return fmt.apply(this, [this])
+          return fmt.apply(this, [this] as any)
         }
       }
     })
@@ -77,15 +77,15 @@ export type MsgFn = (props?: any) => string
 
 export interface CreateErr<F extends MsgFn> {
   readonly code: string
-  (input?: Fn_PropsOf<F> | Partial<Err>, ...causes: (Err | Error)[]): Err & Fn_PropsOf<F>
+  (input?: Fn_PropsOf<F> & Partial<Err>, ...causes: (Err | Error)[]): Err & Fn_PropsOf<F>
 }
 
 type Fn_PropsOf<F extends MsgFn>
-  = F extends () => any
-    ? {}
-    :
-    F extends (props?: infer P) => any
+  = F extends (props: infer P) => any
     ? P
+    :
+    F extends () => any    
+    ? {}
     :
     never
 
