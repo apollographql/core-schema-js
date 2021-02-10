@@ -5,7 +5,7 @@ import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
 import type { AsSource, Source } from './source'
 import { source } from './source'
 import { derive, get, Get, set } from './data'
-import { customScalar, De_TypeOf, metadata, must, struct, Str } from './serde'
+import { customScalar, De_TypeOf, metadata, must, struct, Str, Bool } from './serde'
 import { sourceOf, documentOf, pathOf } from './linkage'
 import { Spec, spec } from './spec'
 import { Must } from './is'
@@ -134,7 +134,8 @@ const core = spec `https://lib.apollo.dev/core/v0.1`
 
 const bootstrapReq = must(struct({
   using: must(customScalar(Spec)),
-  as: Str
+  as: Str,
+  export: Bool,
 }))
 
 type Req = Must<De_TypeOf<typeof bootstrapReq>>

@@ -11,6 +11,7 @@ export default directive(core) ({
   Using: repeatable({
     using: must(SpecUrl),
     as: Str,  
+    export: Bool,
   }, 'SCHEMA'),
   Export: one({
     export: must(Bool),

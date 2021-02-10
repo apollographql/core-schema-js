@@ -30,7 +30,7 @@ export function oneOf<S extends Shape>(forms: S): OneOf<S> {
       const errors: Err[] = []
       for (const [is, de] of Object.entries(forms)) {
         const res = de.deserialize(node)
-        if (isOk(res)) return ok({ is, [is]: res.ok } as Variant<S>)
+        if (isOk(res)) return ok({ is, [is]: res.ok } as Variant<S>, node)
         errors.push(ErrReadForm({ name: is, node }, res))
       }
       return ErrNoMatch({ node }, ...errors)

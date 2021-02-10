@@ -25,7 +25,7 @@ describe("oneOf", () => {
     expect(de.deserialize(schema.directives[0])).toMatchInlineSnapshot(`
       Object {
         "is": "ok",
-        "node": undefined,
+        "node": Directive <definitions/0/directives/0>,
         "ok": Object {
           "Using": Object {
             "using": "https://lib.apollo.dev/core/v0.1",
@@ -38,7 +38,7 @@ describe("oneOf", () => {
     expect(de.deserialize(schema.directives[1])).toMatchInlineSnapshot(`
       Object {
         "is": "ok",
-        "node": undefined,
+        "node": Directive <definitions/0/directives/1>,
         "ok": Object {
           "Export": Object {
             "export": true,

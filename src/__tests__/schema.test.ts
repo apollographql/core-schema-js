@@ -17,20 +17,21 @@ describe("schemas", () => {
         `.value;
 
     expect(using(example)).toMatchInlineSnapshot(`
-        Array [
-          Object {
-            "as": null,
-            "using": Spec {
-              "identity": "https://lib.apollo.dev/core",
-              "name": "core",
-              "version": Version {
-                "major": 0,
-                "minor": 1,
-              },
+      Array [
+        Object {
+          "as": null,
+          "export": null,
+          "using": Spec {
+            "identity": "https://lib.apollo.dev/core",
+            "name": "core",
+            "version": Version {
+              "major": 0,
+              "minor": 1,
             },
           },
-        ]
-      `);
+        },
+      ]
+    `);
   });
 
   describe("ensure", () => {
