@@ -50,7 +50,8 @@ export const isExport = derive<boolean, ASTNode>
 export function exportSchema(doc: DocumentNode) {
   return visit(doc, {
     enter(node) {
-      if (!isExport(node)) return null
+      if (!isExport(node)) return null      
+      return undefined
     }
   })
 }
