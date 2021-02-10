@@ -35,10 +35,6 @@ export function isEmpty<T>(input: T[]): input is [] {
   return !input.length
 }
 
-export type Fn<I=any, O=any> = (input: I) => O
-export type FnInputOf<F extends Fn> = Parameters<F>[0]
-export type FnPropsOf<F extends Fn> = Parameters<F>[0] extends {} ? Parameters<F>[0] : {}
-
 import type { ASTNode } from 'graphql'
 
 export function isAst<N extends ASTNode>(obj: any, kind: N["kind"]): obj is N {

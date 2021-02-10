@@ -1,5 +1,5 @@
 import { ASTNode, DocumentNode } from 'graphql'
-import { AsString, asString, Fn, FnPropsOf, Maybe } from './is'
+import { AsString, asString, Maybe } from './is'
 import { documentOf, sourceOf } from './linkage'
 import sourceMap, { Source, SourceMap } from './source'
 
@@ -50,7 +50,7 @@ export default function ERR(...code: AsString) {
   const codeStr = asString(code)
   return createWithFormatter
 
-  function createWithFormatter<F extends Fn<any, string>>(fmt: F): (input?: FnPropsOf<F> | Partial<Err>, ...causes: (Err | Error)[]) => FnPropsOf<F> & Err {
+  function createWithFormatter<F extends MsgFn>(fmt: F): CreateErr<F> {
     const proto = Object.create(BASE, {
       code: {
         get() { return codeStr }
@@ -69,9 +69,25 @@ export default function ERR(...code: AsString) {
             doc: documentOf(props.node),
           } : {},
           props, { causes }),
-      { code })
+      { code: codeStr })
   }
 }
+
+export type MsgFn = (props?: any) => string
+
+export interface CreateErr<F extends MsgFn> {
+  readonly code: string
+  (input?: Fn_PropsOf<F> | Partial<Err>, ...causes: (Err | Error)[]): Err & Fn_PropsOf<F>
+}
+
+type Fn_PropsOf<F extends MsgFn>
+  = F extends () => any
+    ? {}
+    :
+    F extends (props?: infer P) => any
+    ? P
+    :
+    never
 
 export interface Ok<T> {
   is: 'ok'

@@ -27,7 +27,7 @@ export interface SourceMap {
 
 const isNode = (o: any): o is ASTNode => typeof o?.kind === 'string'
 const locationFrom = (from?: Location | ASTNode): Maybe<Location> =>
-  (from && isNode(from)) ? from.loc : from
+  isNode(from) ? from.loc : from
 
 export default function sourceMap(...input: AsSource | [undefined] | []): SourceMap {
   if (isEmpty(input) || !input[0]) return nullMap
