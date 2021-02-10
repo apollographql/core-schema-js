@@ -40,7 +40,15 @@ fromSource`
 
   enum someSpec__SomeEnum {
     SOME_VALUE
-  }`
+  }
+
+  directive @core(using: String, as: String, export: Boolean)
+    on
+    | SCHEMA
+    | ENUM
+  directive @someSpec(message: String) on FIELD_DEFINITION
+  directive @renamed(message: String) on FIELD_DEFINITION
+  `
 .map(ensure())
 .map(exportSchema)
 .map(print)
@@ -60,6 +68,8 @@ fromSource`
     A
     B
   }
+
+  directive @renamed(message: String) on FIELD_DEFINITION
 */
 ```
 
