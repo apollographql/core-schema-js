@@ -1,7 +1,7 @@
 {
   "name": "@apollo/core-schema",
-  "version": "0.21.0",
-  "description": "Apollo Federation Utilities",
+  "version": "0.1.0",
+  "description": "Apollo Core Schema processing library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
