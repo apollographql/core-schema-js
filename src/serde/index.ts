@@ -1,11 +1,11 @@
 import type { Result } from '../err'
 import type { Maybe } from '../is'
 
+export * from './nullability'
 export * from './metadata'
 export * from './list'
 export * from './struct'
 export * from './scalar'
-export * from './nullability'
 export * from './one-of'
 
 /**

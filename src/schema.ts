@@ -1,15 +1,15 @@
+import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
+import type { AsSource, Source } from './source'
+
 import ERR, { Err, siftResults } from './err'
 import { parse as parseSchema, visit } from 'graphql'
-import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
-
-import type { AsSource, Source } from './source'
 import { source } from './source'
 import { derive, get, Get, set } from './data'
-import { customScalar, De_TypeOf, metadata, must, struct, Str, Bool } from './serde'
 import { sourceOf, documentOf, pathOf } from './linkage'
 import { Spec, spec } from './spec'
-import { Must } from './is'
+import { Maybe } from './is'
 import { Pipe } from './pipe'
+import { customScalar, metadata, must, struct, Str, Bool } from './serde'
 
 export const ErrNoSchemas = ERR `NoSchemas` (() =>
   `no schema definition found`)
@@ -132,20 +132,24 @@ export const schemaDef =
 
 const core = spec `https://lib.apollo.dev/core/v0.1`
 
-const bootstrapReq = must(struct({
-  using: must(customScalar(Spec)),
-  as: Str,
-  export: Bool,
-}))
-
-type Req = Must<De_TypeOf<typeof bootstrapReq>>
+type Req = {
+  using: Spec,
+  as: Maybe<string>,
+  export: Maybe<boolean>,
+}
 
 export const using =
   derive <Req[], DocumentNode>
-  `Specs in use by this schema` (doc => {
+  `Specs in use by this schema` (doc => {    
     // Perform bootstrapping on the schema
     const schema = schemaDef(doc)
     if (!schema) return []
+
+    const bootstrapReq = must(struct({
+      using: must(customScalar(Spec)),
+      as: Str,
+      export: Bool,
+    }))    
 
     // Try to deserialize every directive on the schema element as a
     // core.Using input.

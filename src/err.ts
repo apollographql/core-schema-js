@@ -1,7 +1,7 @@
 import { ASTNode, DocumentNode } from 'graphql'
 import { AsString, asString, Maybe } from './is'
-import { documentOf, sourceOf } from './linkage'
 import sourceMap, { Source, SourceMap } from './source'
+import { documentOf, sourceOf } from './linkage'
 
 /**
  * An Err is an error on a GraphQL document.
@@ -64,13 +64,17 @@ export default function ERR(...code: AsString) {
     return Object.assign(
       (props: any, ...causes: any[]) =>
         Object.assign(Object.create(proto),
-          props.node ? {
-            source: sourceOf(props.node),
-            doc: documentOf(props.node),
-          } : {},
+          attachSourceDoc(props.node),
           props, { causes }),
       { code: codeStr })
   }
+}
+
+const BASE = {
+  is: 'err',
+  toString,
+  causes: Object.freeze([]),
+  toError
 }
 
 export type MsgFn = (props?: any) => string
@@ -169,7 +173,6 @@ export function siftResults<T>(results: Result<T>[]): [Err[], Ok<T>[]] {
   return [errors, okays]
 }
 
-const BASE = { is: 'err', toString, causes: Object.freeze([]), toError }
 const FROM_ERROR = Object.create(BASE, {
   message: {
     get() {
@@ -195,4 +198,13 @@ function toError(this: Err, mapSource: SourceMap = sourceMap(this.source)) {
   const error = new Error(this.toString(mapSource))
   Object.assign(error, this)
   return error
+}
+
+
+function attachSourceDoc(node?: ASTNode) {
+  if (!node) return {}
+  return {
+    source: sourceOf(node),
+    doc: documentOf(node),
+  }
 }

@@ -1,10 +1,6 @@
 import type { ASTNode, DocumentNode } from 'graphql'
-import { data } from './data'
-import ERR from './err'
 import type { Source } from './source'
-
-export const ErrNodeNotAttached = ERR `NodeNotAttached` (() =>
-  `node isn't attached to document, and must be for this operation`)
+import { data } from './data'
 
 /**
  * Source for document
@@ -25,7 +21,7 @@ export const documentOf = data <DocumentNode, ASTNode>
  */
 export function ensureDocumentOf(node: ASTNode): DocumentNode {
   const doc = documentOf(node)
-  if (!doc) throw ErrNodeNotAttached({ node }).toError()
+  if (!doc) throw new NodeNotAttachedError(node)
   return doc
 }
 
@@ -34,3 +30,9 @@ export function ensureDocumentOf(node: ASTNode): DocumentNode {
  */
 export const pathOf = data <readonly (string | number)[], ASTNode>
   `Path to node`
+
+class NodeNotAttachedError extends Error {
+  constructor(public readonly node: ASTNode) {
+    super('node is not attached and must be for this operation')
+  }
+}

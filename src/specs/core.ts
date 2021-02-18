@@ -1,7 +1,7 @@
-import { Str, Bool, must } from '../serde'
-import { spec, Spec } from '../spec'
 import { DirectiveLocation } from 'graphql'
+import { spec, Spec } from '../spec'
 import { scalar, directive, one, repeatable } from '../bind'
+import { Str, Bool, must } from '../serde'
 
 const core = spec `https://lib.apollo.dev/core/v0.1`
 
