@@ -2,7 +2,7 @@ import { ASTNode, DirectiveLocationEnum, DocumentNode, EnumTypeDefinitionNode, E
 import { Spec, } from '../spec'
 import { Shape, Struct, struct, Shape_DeTypeOf, oneOf } from '../serde'
 import { isOk } from '../err'
-import { derive, Get, GetFn } from '../data'
+import { derive, Read, ReadFn } from '../data'
 import { Maybe } from '../is'
 import { using, report } from '../schema'
 import { ensureDocumentOf } from '../linkage'
@@ -90,14 +90,14 @@ export function directive(spec: Spec) {
 }
 
 export type Layer<F extends Forms> = { spec: Spec }
-  & Get<Bind<F>[], ASTNode, []>
-  & GetFn<Bind<F>[], ASTNode, []>
+  & Read<Bind<F>[], ASTNode, []>
+  & ReadFn<Bind<F>[], ASTNode, []>
   & {
       [name in keyof F]: 
-        Get<Shape_DeTypeOf<Form_ShapeOf<F[name]>>[],
+        Read<Shape_DeTypeOf<Form_ShapeOf<F[name]>>[],
             ASTNode,
             []> &
-        GetFn<Shape_DeTypeOf<Form_ShapeOf<F[name]>>[],
+        ReadFn<Shape_DeTypeOf<Form_ShapeOf<F[name]>>[],
             ASTNode,
             []> &
         Struct<Form_ShapeOf<F[name]>>

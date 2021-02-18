@@ -4,7 +4,7 @@ import type { AsSource, Source } from './source'
 import ERR, { Err, siftResults } from './err'
 import { parse as parseSchema, visit } from 'graphql'
 import { source } from './source'
-import { derive, get, Get, set } from './data'
+import { derive, get, Read, set } from './data'
 import { sourceOf, documentOf, pathOf } from './linkage'
 import { Spec, spec } from './spec'
 import { Maybe } from './is'
@@ -69,7 +69,7 @@ export const errors = derive <Err[], DocumentNode>
  * 
  * @param doc 
  */
-export const attach = (...layers: Get<any, DocumentNode, any>[]) =>
+export const attach = (...layers: Read<any, DocumentNode, any>[]) =>
   (doc: DocumentNode): DocumentNode => {
     layers.forEach(l => get(doc, l))
     return doc

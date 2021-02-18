@@ -1,95 +1,90 @@
 import { asString, AsString } from './is'
 
-const getValue = Symbol('Get column value')
-const setValue = Symbol('Set column value')
+const read = Symbol('Get column value')
+const write = Symbol('Set column value')
 
-export interface Set<T, S=any> {
-  [setValue]: SetFn<T, S>
+export interface Read<T, S=any, Default=undefined> {
+  [read]: ReadFn<T, S, Default>
 }
 
-export interface Get<T, S=any, Default=undefined> {
-  [getValue]: GetFn<T, S, Default>
+export interface Write<T, S=any> {
+  [write]: WriteFn<T, S>
 }
 
 export type Data<T, S=any, Default=undefined>
-  = Get<T, S, Default> & Set<T, S>
+  = Read<T, S, Default> & Write<T, S>
 
-export interface SetFn<T, S=any> {
-  (source: S, value: T): void
-}
-
-export interface GetFn<T, S=any, Default=undefined> {
+export interface ReadFn<T, S=any, Default=undefined> {
   <D=Default>(source: S, defaultValue: D): T | D
   (source: S): T | Default
 }
+  
+export interface WriteFn<T, S=any> {
+  (source: S, value: T): void
+}
 
-type Set_TypeOf<S extends Set<any>>
-  = S extends Set<infer T>
+type Write_TypeOf<S extends Write<any>>
+  = S extends Write<infer T>
     ? T
     : never
 
-type Get_DefaultTypeOf<G extends Get<any, any, any>>
-  = G extends Get<any, any, infer D>
+type Read_DefaultOf<G extends Read<any, any, any>>
+  = G extends Read<any, any, infer D>
     ? D
     : never
 
-type Get_ReturnTypeOf<G extends Get<any, any, any>>
-  = G extends Get<infer T, any, infer D>
+type Read_ValueOf<G extends Read<any, any, any>>
+  = G extends Read<infer T, any, infer D>
     ? T | D
     : never
 
-export function col<T, S=any>(...desc: AsString): Get<T, S> & Set<T, S> {
+export function col<T, S=any>(...desc: AsString): Read<T, S> & Write<T, S> {
   const description = asString(desc)
   const symbol = Symbol(description)
   return {
-    [getValue]: (source: S, defaultValue?: any) =>
+    [read]: (source: S, defaultValue?: any) =>
       (source &&
         typeof source === 'object' &&
         symbol in source) ? (source as any)[symbol] : defaultValue,
-    [setValue]: (source: S, value: T) =>
+    [write]: (source: S, value: T) =>
       (source as any)[symbol] = value,
   }
 }
 
-export function data<T, S=any>(...desc: AsString): Get<T, S> & Set<T, S> & GetFn<T, S> {
+export function data<T, S=any>(...desc: AsString): Read<T, S> & Write<T, S> & ReadFn<T, S> {
   const column = col <T, S> (...desc)
-  return Object.assign(column[getValue], column)
+  return Object.assign(column[read], column)
 }
 
-const NotFound = {}
+const NotFound = Object.freeze({})
 export function derive<T, S=any>(...desc: AsString) {
   const column = col(...desc)
-  return (fn: (source: S) => T): Get<T, S, T> & GetFn<T, S, T> => {
+  return (fn: (source: S) => T): Read<T, S, T> & ReadFn<T, S, T> => {
     const resolver = {
-      [getValue]: (source: S) => {
-        const existing = column[getValue](source, NotFound)
+      [read]: (source: S) => {
+        const existing = column[read](source, NotFound)
         if (existing !== NotFound) return existing as T
         const created = fn(source)
-        column[setValue](source, created)
+        column[write](source, created)
         return created as T
       }
     }
-    return Object.assign(resolver[getValue], resolver)
+    return Object.assign(resolver[read], resolver)
   }
 }
 
-export function set<S, Col extends Set<any, S>>(
+export function set<S, Col extends Write<any, S>>(
   source: S,
   col: Col,
-  value: Set_TypeOf<Col>
+  value: Write_TypeOf<Col>
 ) {
-  col[setValue](source, value)
+  col[write](source, value)
 }
 
-export function get<S, Col extends Get<any, S>, D=Get_DefaultTypeOf<Col>>(
+export function get<S, Col extends Read<any, S>, D=Read_DefaultOf<Col>>(
   source: S,
   col: Col,
   defaultValue?: D
-): Get_ReturnTypeOf<Col> {
-  return col[getValue](source, defaultValue)
-}
-
-export function withGet<B, Col extends Get<any, any>>(base: B, col: Col): B & Col {
-  (base as any)[getValue] = col[getValue]
-  return base as any
+): Read_ValueOf<Col> {
+  return col[read](source, defaultValue)
 }
