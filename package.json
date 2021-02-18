@@ -28,9 +28,7 @@
     "access": "public"
   },
   "dependencies": {
-    "apollo-graphql": "^0.6.0",
-    "binarysearch": "^1.0.1",
-    "lodash.xorby": "^4.7.0"
+    "binarysearch": "^1.0.1"
   },
   "peerDependencies": {
     "graphql": "^14.5.0 || ^15.0.0"

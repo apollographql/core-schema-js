@@ -1,9 +1,9 @@
 import type { Serialize, Deserialize } from '.'
 import type { EnumValueNode, FloatValueNode, IntValueNode, NullValueNode, BooleanValueNode, StringValueNode, ValueNode } from 'graphql'
-import type { Maybe } from '../is'
+import { isAst, Maybe } from '../is'
 
 import ERR, { Result, ok } from '../err'
-import { NullValue, isNullNode, ErrWrongNodeKind } from './nodes'
+import { NullValue, ErrWrongNodeKind } from './nodes'
 
 export const ErrReadNaN = ERR `ReadNaN` (
   (props: { repr: string }) => `"${props.repr}" decoded to NaN`)
@@ -34,8 +34,8 @@ export function scalar<T, K extends ScalarKind>(
       } as any
     },
     deserialize(node: Maybe<ValueNode>) {
-      if (!node || isNullNode(node)) return ok(null, node)      
-      if (node?.kind === kind && hasValue(node))
+      if (!node || isAst(node, 'NullValue')) return ok(null, node)      
+      if (isAst(node, kind) && hasValue(node))
         return decode(node.value)
       return ErrWrongNodeKind({ expected: [kind], node })
     }

@@ -1,8 +1,8 @@
 import { NullValueNode, ASTNode } from 'graphql'
-import { Maybe, Must } from '../is'
+import { isAst, Maybe, Must } from '../is'
 import ERR, { ok, Result, isErr } from '../err'
 import { Serialize, Deserialize, De_TypeOf, Ser_TypeOf, Ser_NodeOf, De_NodeOf } from '.'
-import { NullValue, isNullNode } from './nodes'
+import { NullValue } from './nodes'
 
 export const ErrNullNode = ERR `NullNode`
   ((props: { node: Maybe<ASTNode> }) =>
@@ -28,7 +28,7 @@ export function maybe<S extends Serialize & Deserialize>({serialize, deserialize
       return serialize(val)
     },
     deserialize(node: Maybe<De_NodeOf<S> | NullValueNode>) {
-      if (!node || isNullNode(node)) return ok(null, node)
+      if (!node || isAst(node, 'NullValue')) return ok(null, node)
       return deserialize(node)
     },
   }
@@ -47,7 +47,7 @@ export function must<S extends Serialize & Deserialize>(type: S):
   return Object.create(type, {
     deserialize: {
       value(node: Maybe<Ser_TypeOf<S>>): Result<Must<De_TypeOf<S>>> {
-        if (!node || isNullNode(node))
+        if (!node || isAst(node, 'NullValue'))
           return ErrNullNode({ node })
         const result = type.deserialize(node)
         if (!isErr(result) && result.ok == null)

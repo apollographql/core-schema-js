@@ -1,6 +1,6 @@
 import { ASTNode, DocumentNode, NameNode, visit } from 'graphql'
 import { derive } from './data'
-import { Maybe } from './is'
+import { Maybe, isAst } from './is'
 import { ensureDocumentOf } from './linkage'
 import { using } from './schema'
 import { Spec } from './spec'
@@ -29,8 +29,7 @@ export const namespaces = derive <Map<string, Namespace>, DocumentNode>
 export const namespaceOf = derive<Maybe<Namespace>, ASTNode>
   ('Namespace of this node', node => {
     if (!hasName(node)) return null
-    if (node.kind === 'Directive' ||
-      node.kind === 'DirectiveDefinition' ||
+    if (isAst(node, 'Directive', 'DirectiveDefinition') ||
       node.name.value.includes('__')) {
       const [prefix] = node.name.value.split('__')    
       return namespaces(ensureDocumentOf(node)).get(prefix)
@@ -57,4 +56,4 @@ export function exportSchema(doc: DocumentNode) {
 }
 
 const hasName = (node: any): node is ASTNode & { name: NameNode } =>
-  node?.name?.kind === 'Name' && typeof node?.name?.value === 'string'
+  isAst(node?.name, 'Name')

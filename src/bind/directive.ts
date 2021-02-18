@@ -3,7 +3,7 @@ import { Spec, } from '../spec'
 import { Shape, Struct, struct, Shape_DeTypeOf, oneOf } from '../serde'
 import { isOk } from '../err'
 import { derive, Read, ReadFn } from '../data'
-import { Maybe } from '../is'
+import { isAst, Maybe } from '../is'
 import { using, report } from '../schema'
 import { ensureDocumentOf } from '../linkage'
 
@@ -40,7 +40,7 @@ export function directive(spec: Spec) {
 
     const all = derive <Bind<F>[], ASTNode>
       (`${spec}`, (node: ASTNode) => {
-        if (node.kind === 'Document') {
+        if (isAst(node, 'Document')) {
           const output: Bind<F>[] = []
           visit(node, { enter(node) {
             if (node.kind !== 'Document')
@@ -204,7 +204,6 @@ type NodeFor<L extends DirectiveLocationEnum>
 function locToKind<L extends DirectiveLocationEnum>(on: L): NodeFor<L>["kind"] {
   return locationToKind[on] as any
 }
-
 
 const locationToKind: { [loc in DirectiveLocationEnum]?: ASTNode["kind"] } = {
   // // Request Definitions

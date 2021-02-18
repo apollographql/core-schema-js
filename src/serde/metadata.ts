@@ -1,4 +1,5 @@
 import { ValueNode, DirectiveNode, ObjectValueNode } from 'graphql'
+import { isAst } from '../is'
 import { derive } from '../data'
 
 export type HasMetadata = DirectiveNode | ObjectValueNode
@@ -8,7 +9,7 @@ export type HasMetadata = DirectiveNode | ObjectValueNode
  */
 export const metadata = derive <Map<string, ValueNode>, HasMetadata>
   ('Key value mapping over arguments / fields', target => {
-    const args = target.kind === 'Directive' ? target.arguments : target.fields
+    const args = isAst(target, 'Directive') ? target.arguments : target.fields
     const meta = new Map<string, ValueNode>()
     for (const arg of args ?? []) {
       meta.set(arg.name.value, arg.value)
@@ -23,9 +24,7 @@ export const metadata = derive <Map<string, ValueNode>, HasMetadata>
  *
  * @param o input
  */
-export function hasMetadata(o: any): o is HasMetadata {
-  const kind = o?.kind
-  return kind === 'Directive' || kind === 'ObjectValue'
-}
+export const hasMetadata = (o: any): o is HasMetadata =>
+  isAst(o, 'Directive', 'ObjectValue')
 
 export default metadata

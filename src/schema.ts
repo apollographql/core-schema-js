@@ -7,7 +7,7 @@ import { source } from './source'
 import { derive, get, Read, set } from './data'
 import { sourceOf, documentOf, pathOf } from './linkage'
 import { Spec, spec } from './spec'
-import { Maybe } from './is'
+import { isAst, Maybe } from './is'
 import { Pipe } from './pipe'
 import { customScalar, metadata, must, struct, Str, Bool } from './serde'
 
@@ -113,7 +113,7 @@ export const schemaDef =
     ('The schema definition node', doc => {
       let schema: SchemaDefinitionNode | undefined = void 0
       for (const def of doc.definitions) {
-        if (def.kind === 'SchemaDefinition') {
+        if (isAst(def, 'SchemaDefinition')) {
           if (!schema) {
             schema = def
             continue
@@ -169,7 +169,7 @@ export const using =
       // Find this directive. (Note that this scan is more permissive than the spec
       // requires, allowing the @core(using:) dire)
       const coreReq = okays.find(r =>
-        r.node && r.node.kind === 'Directive' &&
+        isAst(r.node, 'Directive') &&
         r.node.name.value === (r.ok.as ?? core.name))
       const coreName = (coreReq?.ok.as ?? core.name)
 
@@ -190,9 +190,10 @@ export const using =
       }
 
       report(
-        ...errs.filter(
-          e => e.node?.kind === 'Directive' &&
-          e.node.name.value === coreName)
+        ...errs.filter(e =>
+          isAst(e.node, 'Directive') &&
+          e.node.name.value === coreName
+        )
       )
       return okays.map(r => r.ok)
     })
