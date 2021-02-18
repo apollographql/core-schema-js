@@ -1,5 +1,5 @@
 import { one, directive } from "../bind";
-import { Int, Str, must, struct, list } from "../serde";
+import { Int, Str, must, list } from "../serde";
 import { spec } from "../spec";
 import { fromSource, errors } from "../schema";
 
@@ -15,7 +15,7 @@ describe("Layers", () => {
         field: Int @someSpec(message: "hello")
         another: String @someSpec(message: "goodbye") @someSpec(value: 42, items: [0, 1, 2])
       }
-    `.value;
+    `.output();
 
     const someSpec = directive(spec`https://example.com/someSpec/v1.0`)({
       FieldAnnotation: one(

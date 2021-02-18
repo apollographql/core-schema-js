@@ -35,8 +35,8 @@ export default fromSource
  */
 export function fromSource(...asSource: AsSource): Pipe<DocumentNode> {
   return Pipe.from(source(...asSource))
-    .map(document)
-    .map(attach(using))
+    .to(document)
+    .to(attach(using))
 }
 
 /**

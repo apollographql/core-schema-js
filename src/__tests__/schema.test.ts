@@ -6,7 +6,7 @@ describe("schemas", () => {
     const example = fromSource`
           schema @core(using: "https://lib.apollo.dev/core/v0.1")
           { query: Query }
-        `.value;
+        `.output();
     expect(errors(example).length).toEqual(0);
   });
 
@@ -14,7 +14,7 @@ describe("schemas", () => {
     const example = fromSource`
           schema @core(using: "https://lib.apollo.dev/core/v0.1")
           { query: Query }
-        `.value;
+        `.output();
 
     expect(using(example)).toMatchInlineSnapshot(`
       Array [
@@ -45,7 +45,7 @@ describe("schemas", () => {
           # error: extra schema
           schema { query: Query }
         `,
-      }).value;
+      }).output();
 
       expect(() => ensure(example)).toThrowErrorMatchingInlineSnapshot(`
         "[DocumentNotOk] extra-schema.graphql:1:0: one or more errors on document
@@ -64,7 +64,7 @@ describe("schemas", () => {
 
           type Query { int: Int }
         `,
-      }).value;
+      }).output();
 
       expect(documentOf(example.definitions[1])).toBe(example);
 

@@ -1,7 +1,5 @@
-import { one, directive } from "../bind";
-import { Int, Str, must, struct, list, Bool, oneOf } from "../serde";
-import { spec } from "../spec";
-import { fromSource, errors, schemaDef } from "../schema";
+import { Str, must, struct, Bool, oneOf } from "../serde";
+import { fromSource, schemaDef } from "../schema";
 
 describe("oneOf", () => {
   it("deserializes one of a set of variants", () => {
@@ -11,7 +9,7 @@ describe("oneOf", () => {
         @core(export: true)
         @another(value: false)
       { query: Query }
-    `.map(schemaDef).value;
+    `.to(schemaDef).output();
 
     const de = oneOf({
       Using: struct({

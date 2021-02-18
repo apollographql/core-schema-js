@@ -14,7 +14,7 @@ describe("Namespaces", () => {
         @core(using: "https://example.com/someSpec/v1.0")
         @core(using: "https://spec.example.io/another/v1.0", as: "renamed", export: true)
       { query: Query }
-      `.map(namespaces).value;
+      `.to(namespaces).output();
     expect(ns).toMatchInlineSnapshot(`
       Map {
         "core" => Object {
@@ -68,7 +68,7 @@ describe("Namespaces", () => {
       enum someSpec__SomeEnum {
         SOME_VALUE
       }
-      `.value.definitions[1];
+      `.output().definitions[1];
 
     expect(namespaceOf(namespacedNode)).toMatchInlineSnapshot(`
       Object {
@@ -102,9 +102,9 @@ describe("Namespaces", () => {
         SOME_VALUE
       }`;
 
-    const schema = schemaDef(doc.value)!;
-    const queryType = doc.value.definitions[1]! as ObjectTypeDefinitionNode;
-    const someEnum = doc.value.definitions[2]! as EnumTypeDefinitionNode;
+    const schema = schemaDef(doc.output())!;
+    const queryType = doc.output().definitions[1]! as ObjectTypeDefinitionNode;
+    const someEnum = doc.output().definitions[2]! as EnumTypeDefinitionNode;
 
     expect(isExport(schema)).toBe(true);
     expect(isExport(schema.directives![0])).toBe(false);
@@ -140,8 +140,9 @@ describe("Namespaces", () => {
       directive @someSpec(message: String) on FIELD_DEFINITION
       directive @renamed(message: String) on FIELD_DEFINITION
       `
-      .map(exportSchema)
-      .map(print).value;
+      .to(exportSchema)
+      .to(print)
+      .output();
 
     expect(exported).toMatchInlineSnapshot(`
       "schema {
