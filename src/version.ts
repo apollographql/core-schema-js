@@ -34,9 +34,7 @@ export class Version {
    * ```
    */
   public static parse(input: string): Version {
-    const result = this.decode(input)
-    if (isErr(result)) throw result.toError()
-    return result.ok
+    return this.decode(input).unwrap()
   }
 
   public static decode(input: string): Result<Version> {
@@ -57,10 +55,9 @@ export class Version {
    *
    * # Example
    * ```
-   * use using::Version;
-   * assert!(Version(1, 0).satisfies(&Version(1, 0)));
-   * assert!(Version(1, 2).satisfies(&Version(1, 0)));
-   * assert!(!Version(2, 0).satisfies(&Version(1, 9)));
+   * assert(new Version(1, 0).satisfies(new Version(1, 0)))
+   * assert(new Version(1, 2).satisfies(new Version(1, 0)))
+   * assert(!(new Version(2, 0).satisfies(new Version(1, 9))))
    * ```
    **/
   public satisfies(required: Version): boolean {

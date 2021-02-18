@@ -9,7 +9,9 @@ describe("oneOf", () => {
         @core(export: true)
         @another(value: false)
       { query: Query }
-    `.to(schemaDef).output();
+    `
+      .to(schemaDef)
+      .output();
 
     const de = oneOf({
       Using: struct({
@@ -21,8 +23,7 @@ describe("oneOf", () => {
     });
 
     expect(de.deserialize(schema.directives[0])).toMatchInlineSnapshot(`
-      Object {
-        "is": "ok",
+      Okay {
         "node": Directive <definitions/0/directives/0>,
         "ok": Object {
           "Using": Object {
@@ -34,8 +35,7 @@ describe("oneOf", () => {
     `);
 
     expect(de.deserialize(schema.directives[1])).toMatchInlineSnapshot(`
-      Object {
-        "is": "ok",
+      Okay {
         "node": Directive <definitions/0/directives/1>,
         "ok": Object {
           "Export": Object {

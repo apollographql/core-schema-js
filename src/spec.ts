@@ -41,9 +41,7 @@ export class Spec {
 
   /// Parse a spec URL or throw
   public static parse(input: string): Spec {
-    const result = this.decode(input)
-    if (isErr(result)) throw result.toError()
-    return result.ok
+    return this.decode(input).unwrap()
   }
 
   /// Decode a spec URL
@@ -65,8 +63,12 @@ export class Spec {
     return ok(new Spec(url.toString(), name, version))
   }
 
-  toString() {
+  get url() {
     return `${this.identity}/${this.version}`
+  }
+
+  toString() {
+    return `Spec <${this.url}>`
   }
 }
 

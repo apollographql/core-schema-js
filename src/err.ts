@@ -25,6 +25,7 @@ export interface Err {
   readonly causes: (Err | Error)[]
   toString(mapSource?: SourceMap): string
   toError(mapSource?: SourceMap): Error
+  unwrap(): never
 }
 
 /**
@@ -63,19 +64,27 @@ export default function ERR(...code: AsString) {
     })
     return Object.assign(
       (props: any, ...causes: any[]) =>
-        Object.assign(Object.create(proto),
-          attachSourceDoc(props.node),
-          props, { causes }),
+        Object.create(proto, {
+          ...sourceDocDescriptors(props.node),
+          ...Object.fromEntries(
+            Object.entries(props)
+              .map(([prop, value]) => [prop, {value}])
+          ),
+          causes: { value: causes },
+        }),
       { code: codeStr })
   }
 }
 
-const BASE = {
+const BASE = Object.freeze({
   is: 'err',
   toString,
   causes: Object.freeze([]),
-  toError
-}
+  toError,
+  unwrap() {
+    throw (this as any).toError()
+  }
+})
 
 export type MsgFn = (props?: any) => string
 
@@ -97,14 +106,21 @@ export interface Ok<T> {
   is: 'ok'
   ok: T
   node: Maybe<ASTNode>
+  unwrap(): T
+}
+
+class Okay<T> {
+  constructor(
+    public readonly ok: T,
+    public readonly node: Maybe<ASTNode>
+  ) {}
+
+  get is(): 'ok' { return 'ok' }
+  unwrap() { return this.ok }
 }
 
 export function ok<T>(ok: T, node?: Maybe<ASTNode>) {
-  return {
-    is: 'ok' as 'ok',
-    ok,
-    node
-  }
+  return new Okay(ok, node)
 }
 
 export type Result<T> = Ok<T> | Err
@@ -201,10 +217,12 @@ function toError(this: Err, mapSource: SourceMap = sourceMap(this.source)) {
 }
 
 
-function attachSourceDoc(node?: ASTNode) {
+function sourceDocDescriptors(node?: ASTNode) {
   if (!node) return {}
-  return {
-    source: sourceOf(node),
-    doc: documentOf(node),
-  }
+  const descriptors: any = {}
+  const source = sourceOf(node)
+  if (source) descriptors.source = { value: source }
+  const doc = documentOf(node)
+  if (doc) descriptors.doc = { value: doc }
+  return descriptors
 }
