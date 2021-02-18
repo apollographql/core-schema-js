@@ -2,6 +2,7 @@ import { ObjectValueNode, NullValueNode, DirectiveNode, ObjectFieldNode, Argumen
 import { Maybe } from 'graphql/jsutils/Maybe'
 import ERR, { isErr, isOk, ok } from '../err'
 import { De_TypeOf, SerDe, Serialize, Deserialize } from '.'
+import { must } from './nullability'
 import { HasMetadata, hasMetadata, metadata } from './metadata'
 import { ErrWrongNodeKind, NullValue } from './nodes'
 
@@ -74,6 +75,41 @@ export function struct<S extends Shape>(shape: S): Struct<S> {
       return ok(Object.fromEntries(entries), node)
     }
   }
+}
+
+/**
+ * SerDe a directive with a particular name.
+ * 
+ * @param name 
+ * @param shape 
+ */
+export function dir<S extends Shape>(name: string, shape: S): Dir<S> {
+  const structure = must(struct(shape))
+  const nameNode = { kind: 'Name' as 'Name', value: name }
+  return {
+    shape,
+    name,
+    serialize(value) {
+      return {
+        kind: 'Directive' as 'Directive',
+        name: nameNode,
+        arguments: serializeFields(shape, value, 'Argument')
+      }
+    },
+    deserialize(node) {
+      if (node?.kind !== 'Directive')
+        return ErrWrongNodeKind({ expected: ['Directive'], node })
+      if (node.name.value !== name) return ok(null, node)
+      return structure.deserialize(node)
+    }
+  }
+}
+
+export type Dir<S extends Shape> =
+  Serialize<Shape_DeTypeOf<S>, DirectiveNode> &
+  Deserialize<Maybe<Shape_DeTypeOf<S>>, DirectiveNode> & {
+  readonly shape: S
+  readonly name: string
 }
 
 function serializeFields<
