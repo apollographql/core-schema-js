@@ -1,4 +1,4 @@
-import { default as ERR, isErr, ok, Result } from './err'
+import { default as ERR, ok, Result } from './err'
 import { asString, AsString } from './is'
 
 export type AsVersion = AsString | [number, number]
