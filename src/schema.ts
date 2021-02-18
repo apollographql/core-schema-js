@@ -43,7 +43,7 @@ export function fromSource(...asSource: AsSource): Pipe<DocumentNode> {
  * Document for source
  */
 export const document = derive <DocumentNode, Source>
-  `Document for source` (src => link(parseSchema(src.text), src))
+  ('Document for source', src => link(parseSchema(src.text), src))
 
 /**
  * Report one or more errors, linking them to the document.
@@ -59,7 +59,7 @@ export function report(...errs: Err[]) {
  * Errors in this document
  */
 export const errors = derive <Err[], DocumentNode>
-  `Document errors` (() => [])
+  ('Document errors', () => [])
 
 /**
  * Attach metadata layers to a document.
@@ -110,7 +110,7 @@ function link(doc: DocumentNode, source: Source) {
 
 export const schemaDef =
   derive <SchemaDefinitionNode | undefined, DocumentNode>
-    `The schema definition node` (doc => {
+    ('The schema definition node', doc => {
       let schema: SchemaDefinitionNode | undefined = void 0
       for (const def of doc.definitions) {
         if (def.kind === 'SchemaDefinition') {
@@ -140,55 +140,59 @@ type Req = {
 
 export const using =
   derive <Req[], DocumentNode>
-  `Specs in use by this schema` (doc => {    
-    // Perform bootstrapping on the schema
-    const schema = schemaDef(doc)
-    if (!schema) return []
+    ('Specs in use by this schema', doc => {    
+      // Perform bootstrapping on the schema
+      const schema = schemaDef(doc)
+      if (!schema) return []
 
-    const bootstrapReq = must(struct({
-      using: must(customScalar(Spec)),
-      as: Str,
-      export: Bool,
-    }))    
+      const bootstrapReq = must(struct({
+        using: must(customScalar(Spec)),
+        as: Str,
+        export: Bool,
+      }))    
 
-    // Try to deserialize every directive on the schema element as a
-    // core.Using input.
-    //
-    // This uses the deserializer directly, not checking the name of the
-    // directive. We need to do this during bootstrapping in order to discover
-    // the name of @core within this document.
-    const [errs, okays] = siftResults(
-      (schema.directives ?? [])
-        .filter(d => metadata(d).has('using'))
-        .map(bootstrapReq.deserialize)
-    )
+      // Try to deserialize every directive on the schema element as a
+      // core.Using input.
+      //
+      // This uses the deserializer directly, not checking the name of the
+      // directive. We need to do this during bootstrapping in order to discover
+      // the name of @core within this document.
+      const [errs, okays] = siftResults(
+        (schema.directives ?? [])
+          .filter(d => metadata(d).has('using'))
+          .map(bootstrapReq.deserialize)
+      )
 
-    // Core schemas MUST reference the core spec as the first @core directive
-    // on their schema element.
-    //
-    // Find this directive. (Note that this scan is more permissive than the spec
-    // requires, allowing the @core(using:) dire)
-    const coreReq = okays.find(r =>
-      r.node && r.node.kind === 'Directive' &&
-      r.node.name.value === (r.ok.as ?? core.name))
-    const coreName = (coreReq?.ok.as ?? core.name)
+      // Core schemas MUST reference the core spec as the first @core directive
+      // on their schema element.
+      //
+      // Find this directive. (Note that this scan is more permissive than the spec
+      // requires, allowing the @core(using:) dire)
+      const coreReq = okays.find(r =>
+        r.node && r.node.kind === 'Directive' &&
+        r.node.name.value === (r.ok.as ?? core.name))
+      const coreName = (coreReq?.ok.as ?? core.name)
 
-    if (!coreReq) {
-      report(ErrNoCore({ doc, node: schema }))
-      return []
-    }
+      if (!coreReq) {
+        report(ErrNoCore({ doc, node: schema }))
+        return []
+      }
 
-    const {ok: coreUse, node: directive} = coreReq
+      const {ok: coreUse, node: directive} = coreReq
 
-    if (coreUse.using.identity !== core.identity) {
-      report(ErrCoreSpecIdentity({ doc, node: directive ?? schema, got: coreUse.using.identity }))
-      return []
-    }
+      if (coreUse.using.identity !== core.identity) {
+        report(ErrCoreSpecIdentity({
+          doc,
+          node: directive ?? schema,
+          got: coreUse.using.identity
+        }))
+        return []
+      }
 
-    report(
-      ...errs.filter(
-        e => e.node?.kind === 'Directive' &&
-        e.node.name.value === coreName)
-    )
-    return okays.map(r => r.ok)
-  })
+      report(
+        ...errs.filter(
+          e => e.node?.kind === 'Directive' &&
+          e.node.name.value === coreName)
+      )
+      return okays.map(r => r.ok)
+    })

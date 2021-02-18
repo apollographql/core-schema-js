@@ -7,7 +7,7 @@ export type HasMetadata = DirectiveNode | ObjectValueNode
  * Key->ValueNode mapping on object fields or directive arguments.
  */
 export const metadata = derive <Map<string, ValueNode>, HasMetadata>
-  `Key value mapping over arguments / fields` (target => {
+  ('Key value mapping over arguments / fields', target => {
     const args = target.kind === 'Directive' ? target.arguments : target.fields
     const meta = new Map<string, ValueNode>()
     for (const arg of args ?? []) {

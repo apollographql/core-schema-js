@@ -13,7 +13,7 @@ interface Namespace {
 }
 
 export const namespaces = derive <Map<string, Namespace>, DocumentNode>
-  `Namespaces in document` (doc => {
+  ('Namespaces in document', doc => {
     const names = new Map<string, Namespace>()
     for (const layer of using(doc)) {
       const name = layer.as ?? layer.using.name
@@ -27,7 +27,7 @@ export const namespaces = derive <Map<string, Namespace>, DocumentNode>
   })
 
 export const namespaceOf = derive<Maybe<Namespace>, ASTNode>
-  `Namespace of this node` (node => {
+  ('Namespace of this node', node => {
     if (!hasName(node)) return null
     if (node.kind === 'Directive' ||
       node.kind === 'DirectiveDefinition' ||
@@ -39,7 +39,7 @@ export const namespaceOf = derive<Maybe<Namespace>, ASTNode>
   })
 
 export const isExport = derive<boolean, ASTNode>
-  `is this node in the export schema` (node => {
+  ('Is this node in the export schema?', node => {
     const [explicit] = core.Export(node)
     if (explicit) return explicit.export
     const ns = namespaceOf(node)

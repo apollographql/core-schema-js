@@ -27,8 +27,7 @@ export function directive(spec: Spec) {
     ) 
 
     const nameInDoc = derive <Maybe<string>, DocumentNode>
-      `name of ${spec} in document`
-      (doc => {
+      ('name of ${spec} in document', doc => {
         const requests = using(doc)
         for (const r of requests) {
           if (r.using.identity === spec.identity &&
@@ -40,36 +39,35 @@ export function directive(spec: Spec) {
       })
 
     const all = derive <Bind<F>[], ASTNode>
-      `${spec}` (
-        (node: ASTNode) => {
-          if (node.kind === 'Document') {
-            const output: Bind<F>[] = []
-            visit(node, { enter(node) {
-              if (node.kind !== 'Document')
-                output.push(...all(node))
-            } })
-            return output
-          }
-
-          const doc = ensureDocumentOf(node)
-          const de = forKind.get(node.kind)
-          if (!de) return []
-
-          const self = nameInDoc(doc)
+      (`${spec}`, (node: ASTNode) => {
+        if (node.kind === 'Document') {
           const output: Bind<F>[] = []
-          for (const dir of directivesOf(node)) {
-            if (dir.name.value !== self) continue
-            const result = de.deserialize(dir)
-            if (isOk(result)) output.push(
-              Object.assign(result.ok, {
-                on: node
-              }) as Bind<F>)
-            else report(result)            
-          }
-          // TODO: Validate non-repeatable directives here
+          visit(node, { enter(node) {
+            if (node.kind !== 'Document')
+              output.push(...all(node))
+          } })
           return output
         }
-      )
+
+        const doc = ensureDocumentOf(node)
+        const de = forKind.get(node.kind)
+        if (!de) return []
+
+        const self = nameInDoc(doc)
+        const output: Bind<F>[] = []
+        for (const dir of directivesOf(node)) {
+          if (dir.name.value !== self) continue
+          const result = de.deserialize(dir)
+          if (isOk(result)) output.push(
+            Object.assign(result.ok, {
+              on: node
+            }) as Bind<F>)
+          else report(result)            
+        }
+        // TODO: Validate non-repeatable directives here
+        return output
+      }
+    )
 
     const formsByName = Object.fromEntries(
       Object.keys(forms)
@@ -77,9 +75,8 @@ export function directive(spec: Spec) {
           name,
           Object.assign(
             derive <Shape_DeTypeOf<Forms_UnionOf<F>>[], ASTNode>
-            `${spec}#${name}` (node =>
-              all(node).map(bind => bind[name]).filter(Boolean)
-            ),
+              ('${spec}#${name}', node =>
+                all(node).map(bind => bind[name]).filter(Boolean)),
             structs[name]
           )
         ])
