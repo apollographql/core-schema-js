@@ -9,14 +9,11 @@ export interface Write<V, S=any> {
   [write]: WriteFn<V, S>
 }
 
-export type Data<V, S=any, Default=undefined>
-  = Read<V, S, Default> & Write<V, S>
-
 export interface ReadFn<V, S=any, Default=undefined> {
   <D=Default>(source: S, defaultValue: D): V | D
   (source: S): V | Default
 }
-  
+
 export interface WriteFn<V, S=any> {
   (source: S, value: V): void
 }
