@@ -22,7 +22,7 @@ describe("oneOf", () => {
       }),
     });
 
-    expect(de.deserialize(schema.directives[0])).toMatchInlineSnapshot(`
+    expect(de.deserialize(schema?.directives?.[0])).toMatchInlineSnapshot(`
       Okay {
         "node": Directive <definitions/0/directives/0>,
         "ok": Object {
@@ -34,7 +34,7 @@ describe("oneOf", () => {
       }
     `);
 
-    expect(de.deserialize(schema.directives[1])).toMatchInlineSnapshot(`
+    expect(de.deserialize(schema?.directives?.[1])).toMatchInlineSnapshot(`
       Okay {
         "node": Directive <definitions/0/directives/1>,
         "ok": Object {
@@ -46,7 +46,7 @@ describe("oneOf", () => {
       }
     `);
 
-    expect(de.deserialize(schema.directives[2]).toString())
+    expect(de.deserialize(schema?.directives?.[2]).toString())
       .toMatchInlineSnapshot(`
       "[NoMatch] <anonymous>:4:9: no forms matched
         - [ReadForm] <anonymous>:4:9: could not read form Using

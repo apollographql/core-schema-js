@@ -1,5 +1,5 @@
-import { fromSource, schemaDef } from "../schema";
-import { namespaces, namespaceOf, isExport, exportSchema } from "../namespace";
+import { errors, fromSource, schemaDef } from "../schema";
+import { namespacesIn, namespaceOf, isExport, exportSchema } from "../namespace";
 import {
   EnumTypeDefinitionNode,
   ObjectTypeDefinitionNode,
@@ -7,18 +7,18 @@ import {
 } from "graphql";
 
 describe("Namespaces", () => {
-  it("namespaces(doc) returns a map of namespaces", () => {
+  it("namespacesIn(doc) returns a map of namespaces", () => {
     const ns = fromSource`
       schema
         @core(using: "https://lib.apollo.dev/core/v0.1")
         @core(using: "https://example.com/someSpec/v1.0")
         @core(using: "https://spec.example.io/another/v1.0", as: "renamed", export: true)
       { query: Query }
-      `.to(namespaces).output();
+      `.to(namespacesIn).output();
     expect(ns).toMatchInlineSnapshot(`
       Map {
-        "core" => Object {
-          "export": false,
+        "core" => Namespace {
+          "isExport": false,
           "name": "core",
           "spec": Spec {
             "identity": "https://lib.apollo.dev/core",
@@ -29,8 +29,8 @@ describe("Namespaces", () => {
             },
           },
         },
-        "someSpec" => Object {
-          "export": false,
+        "someSpec" => Namespace {
+          "isExport": false,
           "name": "someSpec",
           "spec": Spec {
             "identity": "https://example.com/someSpec",
@@ -41,8 +41,8 @@ describe("Namespaces", () => {
             },
           },
         },
-        "renamed" => Object {
-          "export": true,
+        "renamed" => Namespace {
+          "isExport": true,
           "name": "renamed",
           "spec": Spec {
             "identity": "https://spec.example.io/another",
@@ -71,8 +71,8 @@ describe("Namespaces", () => {
       `.output().definitions[1];
 
     expect(namespaceOf(namespacedNode)).toMatchInlineSnapshot(`
-      Object {
-        "export": false,
+      Namespace {
+        "isExport": false,
         "name": "someSpec",
         "spec": Spec {
           "identity": "https://example.com/someSpec",
@@ -113,7 +113,7 @@ describe("Namespaces", () => {
   });
 
   it("exportSchema removes all machinery and retains all exported items", () => {
-    const exported = fromSource`
+    const doc = fromSource`
       schema
         @core(using: "https://lib.apollo.dev/core/v0.1")
         @core(using: "https://example.com/someSpec/v1.0")
@@ -125,7 +125,7 @@ describe("Namespaces", () => {
         another: String @renamed(message: "this stays")
       }
 
-      enum someSpec__ExportedEnum @core(export: true) {
+      enum someSpec__ExportedEnum @core__surface(export: true) {
         A B
       }
 
@@ -134,12 +134,16 @@ describe("Namespaces", () => {
       }
       
       directive @core(using: String, as: String, export: Boolean)
-        on
+        repeatable on
         | SCHEMA
+      directive @core__surface(export: true)
+        on
         | ENUM
       directive @someSpec(message: String) on FIELD_DEFINITION
       directive @renamed(message: String) on FIELD_DEFINITION
       `
+
+    const exported = doc
       .to(exportSchema)
       .to(print)
       .output();

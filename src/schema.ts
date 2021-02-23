@@ -42,8 +42,8 @@ export function fromSource(...asSource: AsSource): Pipe<DocumentNode> {
 /**
  * Document for source
  */
-export const document = derive <DocumentNode, Source>
-  ('Document for source', src => link(parseSchema(src.text), src))
+export const document = derive
+  ('Document for source', (src: Source) => link(parseSchema(src.text), src))
 
 /**
  * Report one or more errors, linking them to the document.
@@ -58,8 +58,8 @@ export function report(...errs: Err[]) {
 /**
  * Errors in this document
  */
-export const errors = derive <Err[], DocumentNode>
-  ('Document errors', () => [])
+export const errors = derive('Document errors',
+  (_: DocumentNode): Err[] => [])
 
 /**
  * Attach metadata layers to a document.
@@ -108,26 +108,25 @@ function link(doc: DocumentNode, source: Source) {
   return doc
 }
 
-export const schemaDef =
-  derive <SchemaDefinitionNode | undefined, DocumentNode>
-    ('The schema definition node', doc => {
-      let schema: SchemaDefinitionNode | undefined = void 0
-      for (const def of doc.definitions) {
-        if (isAst(def, 'SchemaDefinition')) {
-          if (!schema) {
-            schema = def
-            continue
-          }
-          const error = ErrExtraSchema({ doc, node: def })
-          report(error)
+export const schemaDef = derive (
+  'The schema definition node', (doc: DocumentNode) => {
+    let schema: SchemaDefinitionNode | undefined = void 0
+    for (const def of doc.definitions) {
+      if (isAst(def, 'SchemaDefinition')) {
+        if (!schema) {
+          schema = def
+          continue
         }
-      }
-      if (!schema) {
-        const error = ErrNoSchemas({ doc })
+        const error = ErrExtraSchema({ doc, node: def })
         report(error)
       }
-      return schema
-    })
+    }
+    if (!schema) {
+      const error = ErrNoSchemas({ doc })
+      report(error)
+    }
+    return schema
+  })
 
 
 const core = spec `https://lib.apollo.dev/core/v0.1`
@@ -138,62 +137,61 @@ type Req = {
   export: Maybe<boolean>,
 }
 
-export const using =
-  derive <Req[], DocumentNode>
-    ('Specs in use by this schema', doc => {    
-      // Perform bootstrapping on the schema
-      const schema = schemaDef(doc)
-      if (!schema) return []
+export const using = derive('Specs in use by this schema',
+  (doc: DocumentNode): Req[] => {    
+    // Perform bootstrapping on the schema
+    const schema = schemaDef(doc)
+    if (!schema) return []
 
-      const bootstrapReq = must(struct({
-        using: must(customScalar(Spec)),
-        as: Str,
-        export: Bool,
-      }))    
+    const bootstrapReq = must(struct({
+      using: must(customScalar(Spec)),
+      as: Str,
+      export: Bool,
+    }))    
 
-      // Try to deserialize every directive on the schema element as a
-      // core.Using input.
-      //
-      // This uses the deserializer directly, not checking the name of the
-      // directive. We need to do this during bootstrapping in order to discover
-      // the name of @core within this document.
-      const [errs, okays] = siftResults(
-        (schema.directives ?? [])
-          .filter(d => metadata(d).has('using'))
-          .map(bootstrapReq.deserialize)
+    // Try to deserialize every directive on the schema element as a
+    // core.Using input.
+    //
+    // This uses the deserializer directly, not checking the name of the
+    // directive. We need to do this during bootstrapping in order to discover
+    // the name of @core within this document.
+    const [errs, okays] = siftResults(
+      (schema.directives ?? [])
+        .filter(d => metadata(d).has('using'))
+        .map(bootstrapReq.deserialize)
+    )
+
+    // Core schemas MUST reference the core spec as the first @core directive
+    // on their schema element.
+    //
+    // Find this directive. (Note that this scan is more permissive than the spec
+    // requires, allowing the @core(using:) dire)
+    const coreReq = okays.find(r =>
+      isAst(r.node, 'Directive') &&
+      r.node.name.value === (r.ok.as ?? core.name))
+    const coreName = (coreReq?.ok.as ?? core.name)
+
+    if (!coreReq) {
+      report(ErrNoCore({ doc, node: schema }))
+      return []
+    }
+
+    const {ok: coreUse, node: directive} = coreReq
+
+    if (coreUse.using.identity !== core.identity) {
+      report(ErrCoreSpecIdentity({
+        doc,
+        node: directive ?? schema,
+        got: coreUse.using.identity
+      }))
+      return []
+    }
+
+    report(
+      ...errs.filter(e =>
+        isAst(e.node, 'Directive') &&
+        e.node.name.value === coreName
       )
-
-      // Core schemas MUST reference the core spec as the first @core directive
-      // on their schema element.
-      //
-      // Find this directive. (Note that this scan is more permissive than the spec
-      // requires, allowing the @core(using:) dire)
-      const coreReq = okays.find(r =>
-        isAst(r.node, 'Directive') &&
-        r.node.name.value === (r.ok.as ?? core.name))
-      const coreName = (coreReq?.ok.as ?? core.name)
-
-      if (!coreReq) {
-        report(ErrNoCore({ doc, node: schema }))
-        return []
-      }
-
-      const {ok: coreUse, node: directive} = coreReq
-
-      if (coreUse.using.identity !== core.identity) {
-        report(ErrCoreSpecIdentity({
-          doc,
-          node: directive ?? schema,
-          got: coreUse.using.identity
-        }))
-        return []
-      }
-
-      report(
-        ...errs.filter(e =>
-          isAst(e.node, 'Directive') &&
-          e.node.name.value === coreName
-        )
-      )
-      return okays.map(r => r.ok)
-    })
+    )
+    return okays.map(r => r.ok)
+  })

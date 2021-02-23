@@ -116,11 +116,13 @@ export function data<V, S=any>(description: string):
  * @param fn derivation function
  * @returns an accessor for the derived data
  */
-export function derive<V, S=any>(
+export function derive<F extends (source: any) => any>(
   description: string,
-  fn: (source: S) => V
-): Read<V, S, V> & ReadFn<V, S, V>
+  fn: F
+): F & Read<ReturnType<F>, Parameters<F>[0], ReturnType<F>>
 {
+  type V = ReturnType<F>
+  type S = Parameters<F>[0]
   const column = col <V, S> (description)
   const derived = {
     [read]: (source: S) => {
@@ -131,7 +133,7 @@ export function derive<V, S=any>(
       return created as V
     }
   }
-  return Object.assign(derived[read], derived)
+  return Object.assign(derived[read], derived) as F & Read<V, S, V>
 }
 const NotFound = Object.freeze({})
 

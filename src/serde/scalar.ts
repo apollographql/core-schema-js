@@ -86,7 +86,7 @@ export type CustomScalarOf<C extends Coder<any>> =
     ? Serialize<Maybe<T>, ValueNode> & Deserialize<Maybe<T>, ValueNode>
     : never
 
-export function customScalar<T>(coder: Coder<T>) {
+export function customScalar<T>(coder: Coder<T>): CustomScalarOf<Coder<T>> {
   const encode = coder.encode
     ? (value: T) => coder.encode!(value)
     : (value: T) => String(value)

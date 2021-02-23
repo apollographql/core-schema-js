@@ -12,7 +12,7 @@
     "build": "tsc -p .",
     "watch": "tsc -p . -w",
     "test": "jest",
-    "watch:test": "jest -w"
+    "watch:test": "jest --watch"
   },
   "keywords": [
     "graphql",

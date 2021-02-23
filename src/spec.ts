@@ -63,6 +63,17 @@ export class Spec {
     return ok(new Spec(url.toString(), name, version))
   }
 
+  /**
+   * Return true if and only if this spec satisfies the `requested`
+   * spec.
+   * 
+   * @param request
+   */
+  public satisfies(requested: Spec): boolean {
+    return requested.identity === this.identity &&
+           this.version.satisfies(requested.version)
+  }
+
   get url() {
     return `${this.identity}/${this.version}`
   }

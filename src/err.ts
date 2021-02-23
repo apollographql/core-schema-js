@@ -76,6 +76,16 @@ export default function ERR(...code: AsString) {
   }
 }
 
+/**
+ * Report one or more errors, linking them to the document.
+ * 
+ * @param errs
+ */
+ export function report(...errs: Err[]) {  
+  for (const err of errs) if (err.doc)
+    errors(err.doc).push(err)
+}
+
 const BASE = Object.freeze({
   is: 'err',
   toString,
