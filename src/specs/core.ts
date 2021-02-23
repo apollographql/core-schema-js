@@ -5,7 +5,7 @@ import { Str, Bool, must } from '../serde'
 
 export const SpecUrl = scalar('https://lib.apollo.dev/core/v0.1', 'SpecUrl', Spec)
 
-export const using = directive('https://lib.apollo.dev/core/v0.1', 'core', {
+export const core = directive('https://lib.apollo.dev/core/v0.1', 'core', {
   using: must(SpecUrl),
   as: Str,  
   export: Bool,
@@ -15,4 +15,4 @@ export const surface = directive('https://lib.apollo.dev/core/v0.1', 'core__surf
   export: must(Bool)
 }, 'on', ...Object.values(DirectiveLocation))
 
-export default using
+export default core
