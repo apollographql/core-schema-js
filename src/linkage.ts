@@ -1,18 +1,25 @@
 import type { ASTNode, DocumentNode } from 'graphql'
 import type { Source } from './source'
-import { data } from './data'
+import { derive } from './data'
+
+
+export interface ASTNodeContext {
+  readonly source: Source
+  readonly document: DocumentNode
+  readonly path: (string | number)[]
+}
+export const astNodeContextOf = derive('AST node context',
+  (_: ASTNode): ASTNodeContext => ({} as ASTNodeContext));
 
 /**
  * Source for document
  */
-export const sourceOf = data <Source, any>
-  ('Source location')
+export const sourceOf = (node: ASTNode) => astNodeContextOf(node).source
 
 /**
  * Document of node
  */
-export const documentOf = data <DocumentNode, ASTNode>
-  ('Document for node')
+export const documentOf = (node: ASTNode) => astNodeContextOf(node).document
 
 /**
  * Return the document of `node` or throw ErrNodeNotAttached.
@@ -28,8 +35,7 @@ export function ensureDocumentOf(node: ASTNode): DocumentNode {
 /**
  * Path to AST Node
  */
-export const pathOf = data <readonly (string | number)[], ASTNode>
-  ('Path to node')
+export const pathOf = (node: ASTNode) => astNodeContextOf(node).path
 
 class NodeNotAttachedError extends Error {
   constructor(public readonly node: ASTNode) {

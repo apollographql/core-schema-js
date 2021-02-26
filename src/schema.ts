@@ -4,8 +4,8 @@ import type { AsSource, Source } from './source'
 import ERR, { Err, siftResults } from './err'
 import { parse as parseSchema, visit } from 'graphql'
 import { source } from './source'
-import { derive, get, Read, set } from './data'
-import { sourceOf, documentOf, pathOf } from './linkage'
+import { derive } from './data'
+import { astNodeContextOf } from './linkage'
 import { Spec, spec } from './spec'
 import { isAst, Maybe } from './is'
 import { Pipe } from './pipe'
@@ -69,9 +69,9 @@ export const errors = derive('Document errors',
  * 
  * @param doc 
  */
-export const attach = (...layers: Read<any, DocumentNode, any>[]) =>
+export const attach = (...layers: ((node: DocumentNode) => any)[]) =>
   (doc: DocumentNode): DocumentNode => {
-    layers.forEach(l => get(doc, l))
+    layers.forEach(l => l(doc))
     return doc
   }
 
@@ -100,9 +100,11 @@ export function ensure(doc: DocumentNode): DocumentNode {
 function link(doc: DocumentNode, source: Source) {
   visit(doc, {
     enter(node, _key, _parent, path) {
-      set(node, documentOf, doc)
-      set(node, sourceOf, source)
-      set(node, pathOf, [...path])
+      Object.assign(astNodeContextOf(node), {
+        document: doc,
+        source,
+        path: [...path]
+      })
     }
   })
   return doc
