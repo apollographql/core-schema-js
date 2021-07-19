@@ -70,8 +70,22 @@ export class Version {
     )
   }
 
+  /**
+   * a string indicating this version's compatibility series. for release versions (>= 1.0), this
+   * will be a string like "v1.x", "v2.x", and so on. experimental minor updates carry no expectation
+   * of compatibility, so those will just return the same thing as `this.toString()`.
+   */
+  public get series() {
+    const {major} = this
+    return major > 0 ? `${major}.x` : String(this)
+  }
+
   public toString() {
     return `v${this.major}.${this.minor}`
+  }
+
+  public equals(other: Version) {
+    return this.major === other.major && this.minor === other.minor
   }
 
   private static VERSION_RE = /^v(\d+)\.(\d+)$/

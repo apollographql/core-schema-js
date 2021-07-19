@@ -1,33 +1,67 @@
-import { DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLError, GraphQLNonNull, GraphQLString, SchemaDefinitionNode, parse, DirectiveNode } from 'graphql'
+import { DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLError, GraphQLNonNull, GraphQLString, SchemaDefinitionNode, parse, DirectiveNode, Source, printError, ASTNode } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
+import { GraphQLErrorProps, toGraphQLError } from './error'
 import FeatureUrl from './feature-url'
-import { asString, AsString } from './is'
+import Features, { Feature, ReadonlyFeatures } from './features'
+
+export const E_EXTRA_SCHEMA = 'ExtraSchema'
+const ErrExtraSchema = (def: SchemaDefinitionNode) => ({
+  code: E_EXTRA_SCHEMA,
+  message: 'extra schema definition ignored',
+  nodes: [def]
+})
+
+export const E_NO_SCHEMA = 'NoSchema'
+const ErrNoSchema = {
+  code: E_NO_SCHEMA,
+  message: 'no schema definitions found'
+}
+
+export const E_NO_CORE = 'NoCore'
+const ErrNoCore = (causes: Error[]) => ({
+  code: E_NO_CORE,
+  message: 'no core feature found',
+  causes
+})
+
+export const E_BAD_FEATURE = 'BadFeature'
+const ErrBadFeature = (node: DirectiveNode, ...causes: Error[]) => ({
+  code: E_BAD_FEATURE,
+  message: 'bad core feature request',
+  nodes: [node],
+  causes
+})
 
 export default class Core {
-  public static parse(...input: AsString) {
-    const src = asString(input)
-    return new Core(parse(src))
+  public static graphql(parts: TemplateStringsArray, ...replacements: any[]) {
+    return Core.fromSource(
+      new Source(String.raw.call(null, parts, ...replacements), 'inline graphql'))
+  }
+
+  public static fromSource(source: Source) {
+    return new Core(parse(source.body), source)
   }
 
   get document() { return this._document }
   private _document: DocumentNode
 
-  constructor(document: DocumentNode) {
-    this._document = document
-    this.bootstrap()    
-  }
-
-  public readonly errors: GraphQLError[] = []  
-  report(...errors: GraphQLError[]) {
-    this.errors.push(...errors)
-  }
-
-
   public get schemaDefinition() { return this._schema }
   private _schema: SchemaDefinitionNode | null = null
 
-  get features() { return this._features }
-  private _features: Map<string, Feature> = new Map
+  private _features: Features
+  get features(): ReadonlyFeatures { return this._features }
+
+  constructor(document: DocumentNode, public readonly source?: Source) {
+    this._document = document
+    this._features = new Features
+    this.bootstrap()
+  }
+
+  public readonly errors: GraphQLError[] = []  
+  protected report = <P extends GraphQLErrorProps>(...errors: P[]) => {
+    for (const error of errors)
+      this.errors.push(toGraphQLError({ source: this.source, ...error }))
+  }
 
   private bootstrap() {
     this._schema = this.findTheSchema()
@@ -41,20 +75,20 @@ export default class Core {
         if (!schema)
           schema = def
         else
-          this.report(new GraphQLError('extra schema definition', def))
+          this.report(ErrExtraSchema(def))
       }
     }
     if (!schema) {
-      this.report(new GraphQLError('no schema definition', this.document))
+      this.report(ErrNoSchema)
       return null
     }
-    return schema    
+    return schema
   }
 
   private collectFeatures() {
     const schema = this._schema
     if (!schema) return
-    const parseErrors = []
+    const noCoreErrors = []
     let coreFeature: Feature | null = null
     const features = this._features
     for (const d of schema.directives || []) {
@@ -65,39 +99,30 @@ export default class Core {
           const url = FeatureUrl.parse(candidate.feature)
           coreFeature = {
             url,
-            name: candidate.as ?? url.name,            
+            name: candidate.as ?? url.name,
             directive: d
           }
-          features.set(candidate.feature, coreFeature)
-          continue
         }
       } catch (err) {
-        parseErrors.push(err)
+        noCoreErrors.push(err)
       }
 
       if (coreFeature && d.name.value === coreFeature.name) try {
         const values = getArgumentValues($core, d)
         const url = FeatureUrl.parse(values.feature)
-        features.set(values.feature, {
+        features.add({
           url,
           name: values.as ?? url.name,
           purpose: values.for,
           directive: d
         })
       } catch (err) {
-        this.report(err)
+        this.report(ErrBadFeature(d, err))
       }
     }
-    if (!coreFeature) this.report(...parseErrors)
+    if (!coreFeature) this.report(ErrNoCore(noCoreErrors))
+    this.report(...features.validate())
   }
-
-}
-
-interface Feature {
-  url: FeatureUrl
-  name: string
-  purpose?: 'SECURITY' | 'EXECUTION'
-  directive: DirectiveNode
 }
 
 
@@ -125,14 +150,24 @@ const $core = new GraphQLDirective({
   isRepeatable: true,
 })
 
-const s = Core.parse `
-schema
-  @core(feature: "https://specs.apollo.dev/core/v0.1")
-  @core(feature: "https://somewhere.com/else/v1.0", for: EXECUTION)
-{
-  query: Query
-}
-`
+// import {inspect} from 'util'
 
-console.log(s.features)
-console.log(s.errors)
+// const s = Core.fromSource(new Source(`
+// schema
+//   @core(feature: "https://specs.apollo.dev/core/v0.2")
+//   @core(feature: "https://somewhere.com/else/v1.2", for: EXECUTION)
+//   @core(feature: "https://somewhere.com/else/v1.3", for: EXECUTION)
+// {
+//   query: Query
+// }
+// `, 'anonymousz.graphql'))
+
+// console.log(inspect(s.features, false, 6))
+// s.errors.forEach(e => console.log(printError(e)))
+// console.log(s.source?.name)
+
+// console.log(s.features.find('https://somewhere.com/else/v1.0'))
+
+// for (const f of s.features) {
+//   console.log(f)
+// }

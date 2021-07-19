@@ -1,77 +1,44 @@
-import fromSource, { ensure, errors, using } from "../schema";
-import { documentOf } from "../linkage";
+import Core from "../core";
+import { addPaths } from "../path";
 
-describe("schemas", () => {
-  it("fromSource parses a schema AST from source", () => {
-    const example = fromSource`
-          schema @core(using: "https://lib.apollo.dev/core/v0.1")
+describe("Core", () => {
+  it(".graphql parses a schema AST from inline source", () => {
+    const example = Core.graphql`
+          schema @core(feature: "https://specs.apollo.dev/core/v0.1")
           { query: Query }
-        `.output();
-    expect(errors(example).length).toEqual(0);
+        `;
+    expect(example.errors.length).toEqual(0);
   });
 
-  it("extracts all spec references and exposes them as `.using`", () => {
-    const example = fromSource`
-          schema @core(using: "https://lib.apollo.dev/core/v0.1")
+  it("extracts all feature references and exposes them as `.features`", () => {
+    const example = Core.graphql`
+          schema @core(feature: "https://specs.apollo.dev/core/v0.1")
           { query: Query }
-        `.output();
+        `;
+    addPaths(example.document);
 
-    expect(using(example)).toMatchInlineSnapshot(`
-      Array [
-        Object {
-          "as": null,
-          "export": null,
-          "using": Spec {
-            "identity": "https://lib.apollo.dev/core",
-            "name": "core",
-            "version": Version {
-              "major": 0,
-              "minor": 1,
-            },
+    expect(example.features).toMatchInlineSnapshot(`
+      Features {
+        "features": Map {
+          "https://specs.apollo.dev/core" => Map {
+            "v0.1" => Array [
+              Object {
+                "directive": Directive <definitions/0/directives/0>,
+                "name": "core",
+                "purpose": undefined,
+                "url": FeatureUrl {
+                  "identity": "https://specs.apollo.dev/core",
+                  "name": "core",
+                  "version": Version {
+                    "major": 0,
+                    "minor": 1,
+                  },
+                },
+              },
+            ],
           },
         },
-      ]
+      }
     `);
-  });
-
-  describe("ensure", () => {
-    it("throws if there are errors on the document", () => {
-      const example = fromSource({
-        src: "extra-schema.graphql",
-        text: `
-          schema @core(using: "https://lib.apollo.dev/core/v0.1")
-          { query: Query }
-
-          # error: extra schema
-          schema { query: Query }
-        `,
-      }).output();
-
-      expect(() => ensure(example)).toThrowErrorMatchingInlineSnapshot(`
-        "[DocumentNotOk] extra-schema.graphql:1:0: one or more errors on document
-          - [ExtraSchema] extra-schema.graphql:5:11: extra schema definition ignored"
-      `);
-    });
-  });
-
-  describe("documentOf", () => {
-    it("returns the document node for a definition", () => {
-      const example = fromSource({
-        src: "extra-schema.graphql",
-        text: `
-          schema @core(using: "https://lib.apollo.dev/core/v0.1")
-          { query: Query }
-
-          type Query { int: Int }
-        `,
-      }).output();
-
-      expect(documentOf(example.definitions[1])).toBe(example);
-
-      // deeply
-      expect(documentOf((example.definitions[1] as any).fields[0])).toBe(
-        example
-      );
-    });
   });
 });

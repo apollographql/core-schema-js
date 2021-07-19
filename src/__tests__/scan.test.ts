@@ -46,7 +46,7 @@ describe("Layers", () => {
             "message": "hello",
           },
           "name": "someSpec",
-          "node": FieldDefinition <definitions/1/fields/0>,
+          "node": FieldDefinition <182...220>,
           "spec": "https://example.com/someSpec/v1.0",
         },
       ]
@@ -60,7 +60,7 @@ describe("Layers", () => {
             "message": "goodbye",
           },
           "name": "someSpec",
-          "node": FieldDefinition <definitions/1/fields/1>,
+          "node": FieldDefinition <229...320>,
           "spec": "https://example.com/someSpec/v1.0",
         },
       ]
@@ -79,7 +79,7 @@ describe("Layers", () => {
             "value": 42,
           },
           "name": "someSpec__value",
-          "node": FieldDefinition <definitions/1/fields/1>,
+          "node": FieldDefinition <229...320>,
           "spec": "https://example.com/someSpec/v1.0",
         },
       ]

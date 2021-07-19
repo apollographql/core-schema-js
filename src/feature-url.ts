@@ -56,6 +56,11 @@ export default class FeatureUrl {
            this.version.satisfies(requested.version)
   }
 
+  public equals(other: FeatureUrl) {
+    return this.identity === other.identity &&
+      this.version.equals(other.version)
+  }
+
   get url() {
     return `${this.identity}/${this.version}`
   }
