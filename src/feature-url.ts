@@ -1,48 +1,59 @@
+import type { ASTNode, StringValueNode } from 'graphql'
 
 import { URL } from 'url'
-import { asResultFn, isErr, ok, Result } from './err'
 import { Version } from './version'
+import {err} from './error'
 
-import ERR from './err'
+export const ErrNoPath = (url: URL, node?: ASTNode) =>
+  err('NoPath', {
+    message: `spec url does not have a path: ${url}`,    
+    url,
+    nodes: node ? [node] : undefined
+  })
 
-export const ErrNoPath = ERR `NoPath` (
-  ({ url }: { url: URL }) => `spec url does not have a path: ${url}`)
+export const ErrNoName = (url: URL, node?: ASTNode) =>
+  err('NoName', {
+    message: `spec url does not specify a name: ${url}`,
+    url,
+    nodes: node ? [node] : undefined
+  })
 
-export const ErrNoName = ERR `NoName` (
-  ({ url }: { url: URL }) => `spec url does not specify a name: ${url}`)
-
-export const ErrNoVersion = ERR `NoVersion` (
-  ({ url }: { url: URL }) => `spec url does not specify a version: ${url}`)
+export const ErrNoVersion = (url: URL, node?: ASTNode) =>
+  err('NoVersion', {
+    message: `spec url does not specify a version: ${url}`,
+    url,
+    nodes: node ? [node] : undefined
+  })
 
 export default class FeatureUrl {
   constructor(
     public readonly identity: string,
     public readonly name: string,
-    public readonly version: Version
+    public readonly version: Version,
+    public readonly element?: string,
   ) {}
 
   /// Parse a spec URL or throw
-  public static parse(input: string): FeatureUrl {
-    return this.decode(input).unwrap()
-  }
-
-  /// Decode a spec URL
-  public static decode(input: string): Result<FeatureUrl> {
-    const result = parseUrl(input)
-    if (isErr(result)) return result
-    const url = result.ok
+  public static parse(input: string, node?: ASTNode): FeatureUrl {
+    const url = new URL(input)
     const path = url.pathname.split('/')
     const verStr = path.pop()
-    if (!verStr) return ErrNoVersion({ url })
+    if (!verStr) throw ErrNoVersion(url, node)
     const version = Version.parse(verStr)
     const name = path[path.length - 1]
-    if (!name) return ErrNoName({ url })
+    if (!name) throw ErrNoName(url)
+    const element = url.hash ? url.hash.slice(1): undefined
     url.hash = ''
     url.search = ''
     url.password = ''
     url.username = ''
     url.pathname = path.join('/')
-    return ok(new FeatureUrl(url.toString(), name, version))
+    return new FeatureUrl(url.toString(), name, version, element)
+  }
+
+  /// Decode a StringValueNode containing a feature url
+  public static decode(node: StringValueNode): FeatureUrl {
+    return this.parse(node.value, node)
   }
 
   /**
@@ -65,9 +76,16 @@ export default class FeatureUrl {
     return `${this.identity}/${this.version}`
   }
 
+  get isDirective() {
+    return this.element?.startsWith('@')
+  }
+
+  get elementName() {
+    return this.isDirective ? this.element?.slice(1) : this.element
+  }
+
   toString() {
-    return `Feature <${this.url}>`
+    const elStr = this.element ? (this.element + ' from ') : ''
+    return `${elStr}Feature <${this.url}>`
   }
 }
-
-const parseUrl = asResultFn((url: string) => new URL(url))

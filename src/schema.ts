@@ -1,197 +1,189 @@
-import type { DocumentNode, SchemaDefinitionNode } from 'graphql'
-import type { AsSource, Source } from './source'
+import { ASTNode, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, parse, SchemaDefinitionNode, Source } from 'graphql'
+import { getArgumentValues } from 'graphql/execution/values'
+import Core, { CoreFn, Context } from './core'
+import { err } from './error'
+import FeatureUrl from './feature-url'
+import Features, { Feature } from './features'
 
-import ERR, { Err, siftResults } from './err'
-import { parse as parseSchema, visit } from 'graphql'
-import { source } from './source'
-import { derive, get, Read, set } from './data'
-import { sourceOf, documentOf, pathOf } from './linkage'
-import { Spec, spec } from './spec'
-import { isAst, Maybe } from './is'
-import { Pipe } from './pipe'
-import { customScalar, metadata, must, struct, Str, Bool } from './serde'
 
-export const ErrNoSchemas = ERR `NoSchemas` (() =>
-  `no schema definition found`)
-
-export const ErrExtraSchema = ERR `ExtraSchema` (() =>
-  `extra schema definition ignored`)
-
-export const ErrNoCore = ERR `NoCore` (() =>
-  `@core(using: "${core}") directive required on schema definition`)
-
-export const ErrCoreSpecIdentity = ERR `NoCoreSpecIdentity` ((props: { got: string }) =>
-  `the first @core directive must reference "${core.identity}", got: "${props.got}"`)
-
-export const ErrDocumentNotOk = ERR `DocumentNotOk` (() =>
-  `one or more errors on document`)
-
-export default fromSource
-
-/**
- * Helper for quickly creating a Pipe<DocumentNode> from a source. 
- * 
- * @param asSource 
- */
-export function fromSource(...asSource: AsSource): Pipe<DocumentNode> {
-  return Pipe.from(source(...asSource))
-    .to(document)
-    .to(attach(using))
-}
-
-/**
- * Document for source
- */
-export const document = derive
-  ('Document for source', (src: Source) => link(parseSchema(src.text), src))
-
-/**
- * Report one or more errors, linking them to the document.
- * 
- * @param errs
- */
-export function report(...errs: Err[]) {  
-  for (const err of errs) if (err.doc)
-    errors(err.doc).push(err)
-}
-
-/**
- * Errors in this document
- */
-export const errors = derive('Document errors',
-  (_: DocumentNode): Err[] => [])
-
-/**
- * Attach metadata layers to a document.
- * 
- * Calling this isn't required, but ensures that the provided layers are
- * scanned completely and any resulting errors are caught.
- * 
- * @param doc 
- */
-export const attach = (...layers: Read<any, DocumentNode, any>[]) =>
-  (doc: DocumentNode): DocumentNode => {
-    layers.forEach(l => get(doc, l))
-    return doc
-  }
-
-/**
- * Ensure that the document contains no errors. Returns the document
- * if successful, throws ErrDocumentNotOk otherwise.
- * 
- * @param doc
- */
-export function ensure(doc: DocumentNode): DocumentNode {
-  const errs = errors(doc)
-  if (errs.length) {
-    throw ErrDocumentNotOk({
-      node: doc,
-    }, ...errs).toError()
-  }
-  return doc
-}
-
-/**
- * Attach a reference to the document from every node in the doc. These
- * links can be accessed via documentOf.
- *
- * @param doc
- */
-function link(doc: DocumentNode, source: Source) {
-  visit(doc, {
-    enter(node, _key, _parent, path) {
-      set(node, documentOf, doc)
-      set(node, sourceOf, source)
-      set(node, pathOf, [...path])
-    }
+const ErrExtraSchema = (def: SchemaDefinitionNode) =>
+  err('ExtraSchema', {
+    message: 'extra schema definition ignored',
+    nodes: [def]
   })
-  return doc
+
+const ErrNoSchema = () =>
+  err('NoSchema', 'no schema definitions found')
+
+const ErrNoCore = (causes: Error[]) =>
+  err('NoCore', {
+    message: 'no core feature found',
+    causes
+  })
+
+const ErrBadFeature = (node: DirectiveNode, ...causes: Error[]) =>
+  err('BadFeature', {
+    message: 'bad core feature request',
+    nodes: [node],
+    causes
+  })
+
+const ErrOverlappingNames = (name: string, features: Feature[]) =>
+  err('OverlappingNames', {
+    message: `the name "${name}" is defined by multiple features`,
+    nodes: features.map(f => f.directive)
+  })
+
+export type CoreSchemaContext = Readonly<CoreSchema> & Context
+export class CoreSchema extends Core<DocumentNode> {
+  public static graphql(parts: TemplateStringsArray, ...replacements: any[]) {
+    return CoreSchema.fromSource(
+      new Source(String.raw.call(null, parts, ...replacements), '(inline graphql)'))
+  }
+
+  public static fromSource(source: Source) {
+    return new CoreSchema(parse(source))
+  }
+
+  check(...fns: CoreFn<this>[]): this {
+    if (!fns.length) fns = [features, names]
+    return super.check(...fns)
+  }
+
+  get document(): DocumentNode { return this.data }
+  get schemaDefinition(): SchemaDefinitionNode { return this.get(schemaDefinition) }
+  get features(): Features { return this.get(features) }  
+  get names(): Map<string, Feature> { return this.get(names) }
+
+  read(node: ASTNode, directive: GraphQLDirective) {
+    return this.get(reader(directive)) (node)
+  }
 }
 
-export const schemaDef = derive (
-  'The schema definition node', (doc: DocumentNode) => {
-    let schema: SchemaDefinitionNode | undefined = void 0
-    for (const def of doc.definitions) {
-      if (isAst(def, 'SchemaDefinition')) {
-        if (!schema) {
-          schema = def
-          continue
+export default CoreSchema
+
+export function schemaDefinition(this: CoreSchemaContext) {
+  let schema: SchemaDefinitionNode | null = null
+  for (const def of this.document.definitions) {
+    if (def.kind === 'SchemaDefinition') {
+      if (!schema)
+        schema = def
+      else
+        this.report(ErrExtraSchema(def))
+    }
+  }
+  if (!schema) {
+    throw ErrNoSchema()
+  }
+  return schema
+}
+
+export function features(this: CoreSchemaContext) {
+  const schema = this.schemaDefinition
+  this.gate(...schema.directives ?? [])
+  const noCoreErrors = []
+  let coreFeature: Feature | null = null
+  const features = new Features
+  for (const d of schema.directives || []) {
+    if (!coreFeature) try {
+      const candidate = getArgumentValues($core, d)
+      if (CORE_VERSIONS.has(candidate.feature) &&
+          d.name.value === (candidate.as ?? 'core')) {
+        const url = FeatureUrl.parse(candidate.feature)
+        coreFeature = {
+          url,
+          name: candidate.as ?? url.name,
+          directive: d
         }
-        const error = ErrExtraSchema({ doc, node: def })
-        report(error)
+      }
+    } catch (err) {
+      noCoreErrors.push(err)
+    }
+
+    if (coreFeature && d.name.value === coreFeature.name) try {
+      const values = getArgumentValues($core, d)
+      const url = FeatureUrl.parse(values.feature)
+      features.add({
+        url,
+        name: values.as ?? url.name,
+        purpose: values.for,
+        directive: d
+      })
+    } catch (err) {
+      this.report(ErrBadFeature(d, err))
+    }
+  }
+  if (!coreFeature) throw ErrNoCore(noCoreErrors)
+  this.report(...features.validate())
+  return features
+}
+
+export function names(this: CoreSchemaContext) {
+  const {features} = this
+  this.gate(features)
+  const names: Map<string, Feature[]> = new Map
+  for (const feature of features) {
+    if (!names.has(feature.name)) names.set(feature.name, [])
+    names.get(feature.name)?.push(feature)
+  }
+  
+  const output: Map<string, Feature> = new Map
+  for (const [name, features] of names) {
+    if (features.length > 1) {
+      this.report(ErrOverlappingNames(name, features))
+      continue
+    }
+    output.set(name, features[0])
+  }
+  return output
+}
+
+const ErrNotDirective = (url: FeatureUrl) =>
+  err('NotDirective', {
+    message: `feature url "${url}" provided to read() must reference a directive`,
+    url,
+  })
+
+export function reader(directive: GraphQLDirective) {
+  const url = FeatureUrl.parse(directive.extensions?.specifiedBy)
+  if (!url.isDirective)
+    throw ErrNotDirective(url)
+  return (core: CoreSchemaContext) => {
+    core.gate(core.features)
+    const name = core.features.documentName(url)
+    return function *(node: ASTNode) {      
+      for (const d of (node as any).directives || []) {
+        if (d.name.value === name) {
+          yield {
+            node,
+            directive: d,
+            data: getArgumentValues(directive, d) }
+        }
       }
     }
-    if (!schema) {
-      const error = ErrNoSchemas({ doc })
-      report(error)
-    }
-    return schema
-  })
-
-
-const core = spec `https://lib.apollo.dev/core/v0.1`
-
-type Req = {
-  using: Spec,
-  as: Maybe<string>,
-  export: Maybe<boolean>,
+  }
 }
 
-export const using = derive('Specs in use by this schema',
-  (doc: DocumentNode): Req[] => {    
-    // Perform bootstrapping on the schema
-    const schema = schemaDef(doc)
-    if (!schema) return []
+const CORE_VERSIONS = new Set([
+  'https://specs.apollo.dev/core/v0.1',
+  'https://specs.apollo.dev/core/v0.2',
+])
 
-    const bootstrapReq = must(struct({
-      using: must(customScalar(Spec)),
-      as: Str,
-      export: Bool,
-    }))    
+const Purpose = new GraphQLEnumType({
+  name: 'core__Purpose',
+  values: {
+    SECURITY: {},
+    EXECUTION: {},
+  },
+})
 
-    // Try to deserialize every directive on the schema element as a
-    // core.Using input.
-    //
-    // This uses the deserializer directly, not checking the name of the
-    // directive. We need to do this during bootstrapping in order to discover
-    // the name of @core within this document.
-    const [errs, okays] = siftResults(
-      (schema.directives ?? [])
-        .filter(d => metadata(d).has('using'))
-        .map(bootstrapReq.deserialize)
-    )
-
-    // Core schemas MUST reference the core spec as the first @core directive
-    // on their schema element.
-    //
-    // Find this directive. (Note that this scan is more permissive than the spec
-    // requires, allowing the @core(using:) dire)
-    const coreReq = okays.find(r =>
-      isAst(r.node, 'Directive') &&
-      r.node.name.value === (r.ok.as ?? core.name))
-    const coreName = (coreReq?.ok.as ?? core.name)
-
-    if (!coreReq) {
-      report(ErrNoCore({ doc, node: schema }))
-      return []
-    }
-
-    const {ok: coreUse, node: directive} = coreReq
-
-    if (coreUse.using.identity !== core.identity) {
-      report(ErrCoreSpecIdentity({
-        doc,
-        node: directive ?? schema,
-        got: coreUse.using.identity
-      }))
-      return []
-    }
-
-    report(
-      ...errs.filter(e =>
-        isAst(e.node, 'Directive') &&
-        e.node.name.value === coreName
-      )
-    )
-    return okays.map(r => r.ok)
-  })
+const $core = new GraphQLDirective({
+  name: '@core',
+  args: {
+    feature: { type: GraphQLNonNull(GraphQLString), },
+    as: { type: GraphQLString },
+    'for': { type: Purpose }
+  },
+  locations: ['SCHEMA'],
+  isRepeatable: true,
+})

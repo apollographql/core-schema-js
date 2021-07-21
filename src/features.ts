@@ -1,15 +1,14 @@
 import { DirectiveNode } from 'graphql'
-import { GraphQLErrorProps } from './error'
+import { err } from './error'
 import FeatureUrl from './feature-url'
 
-export const E_TOO_MANY_FEATURE_VERSIONS = 'TooManyFeatureVersions'
-const ErrTooManyFeatureVersions = (features: Feature[]) => ({
-  code: E_TOO_MANY_FEATURE_VERSIONS,
-  message: `too many versions of ${features[0].url.identity} at v${features[0].url.version.series}`,
-  features,
-  major: features[0].url.version.major,
-  nodes: features.map(f => f.directive),
-})
+const ErrTooManyFeatureVersions = (features: Feature[]) =>
+  err('TooManyFeatureVersions', {
+    message: `too many versions of ${features[0].url.identity} at v${features[0].url.version.series}`,
+    features,
+    major: features[0].url.version.major,
+    nodes: features.map(f => f.directive),
+  })
 
 export interface Feature {
   url: FeatureUrl
@@ -20,7 +19,6 @@ export interface Feature {
 
 export interface ReadonlyFeatures {
   find(feature: FeatureUrl | string, exact?: boolean): Feature | null
-  validate(): GraphQLErrorProps[]
   [Symbol.iterator](): Iterator<Feature>
 }
   
@@ -45,6 +43,20 @@ export class Features implements ReadonlyFeatures {
     return null
   }
 
+  documentName(feature: FeatureUrl | string, exact = false) {
+    feature = typeof feature === 'string' ? FeatureUrl.parse(feature) : feature
+    const found = this.find(feature, exact)
+    if (!found) return null
+    const element = feature.isDirective ? feature.element?.slice(1) : feature.element
+
+    // if the feature url does not contain an element hash or references the
+    // root directive, return the name of the feature
+    if (!element || feature.isDirective && (element === found.url.name))
+      return found.name
+    
+    return found.name + '__' + element
+  }
+
   *[Symbol.iterator]() {
     for (const majors of this.features.values()) {
       for (const features of majors.values()) {
@@ -53,8 +65,8 @@ export class Features implements ReadonlyFeatures {
     }
   }
 
-  validate(): GraphQLErrorProps[] {
-    const errors: GraphQLErrorProps[] = []
+  validate(): Error[] {
+    const errors: Error[] = []
     for (const [_, majors] of this.features) {
       for (const [_, features] of majors) {
         if (features.length <= 1) continue
