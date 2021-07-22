@@ -89,20 +89,19 @@ export class CoreSchema extends Core<DocumentNode> {
     }
   }
 
-  featureFor(node: ASTNode) {
-    if (!hasName(node)) return
-    
+  featureFor(node: ASTNode): Feature | undefined {
+    if (!hasName(node)) return  
     const [prefix] = getPrefix(node.name.value)
     if (prefix || isAst(node, 'Directive', 'DirectiveDefinition')) {      
       return this.names.get(prefix ?? node.name.value)
     }
-    return null
+    return
   }
 }
 
 export default CoreSchema
 
-export function schema(this: CoreSchemaContext) {
+export function schema(this: CoreSchemaContext): SchemaDefinitionNode {
   let schema: SchemaDefinitionNode | null = null
   for (const def of this.document.definitions) {
     if (def.kind === 'SchemaDefinition') {

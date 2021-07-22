@@ -49,6 +49,18 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
   }
 }
 
+/**
+ * Return a GraphQLError with a code and arbitrary set of properties.
+ * 
+ * This mainly helps deal with the very long list of parameters that GraphQLError's constructor
+ * can take. It also ensures that all errors have a code, and provides a return typing that
+ * facilitates extracting the provided props based on the code, as TypeScript will consider a union of
+ * these errors to be a tagged union.
+ * 
+ * @param code 
+ * @param props 
+ * @returns 
+ */
 export function err<C extends string, P extends Props>(code: C, props: P | string): GraphQLErrorExt<C> & P {
   const message = typeof props === 'string' ? props : props.message  
   const error = new GraphQLErrorExt(code, message, typeof props === 'string' ? undefined : props)
