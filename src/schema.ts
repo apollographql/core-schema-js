@@ -56,8 +56,34 @@ export class CoreSchema extends Core<DocumentNode> {
   get features(): Features { return this.get(features) }  
   get names(): Map<string, Feature> { return this.get(names) }
 
-  read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode) {
-    return this.get(reader(directive)) (node)
+  *read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode) {
+    const url =
+      directive instanceof FeatureUrl ? directive
+      : typeof directive === 'string' ? FeatureUrl.parse(directive)
+      : FeatureUrl.parse(directive.extensions?.specifiedBy)  
+    const name = this.features.documentName(url)
+    const feature = this.features.find(url)
+    const match = url.isDirective
+      ? (dir: DirectiveNode) => dir.name.value === name
+      : (dir: DirectiveNode) => this.featureFor(dir) === feature
+
+    if (!hasDirectives(node)) return
+    if (!feature) return
+    for (const d of node.directives) {
+      if (match(d)) {
+        const data = directive instanceof GraphQLDirective
+          ? getArgumentValues(directive, d)
+          : undefined
+        const item: Item = {
+          node,
+          directive: d,            
+          feature,
+          canonicalName: '@' + feature?.canonicalName(d.name.value),
+        }
+        if (data != null) item.data = data
+        yield item
+      }
+    }
   }
 
   featureFor(node: ASTNode) {
