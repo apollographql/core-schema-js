@@ -13,7 +13,26 @@ type Result<D> = Ok<D> | HasErrors<D>
 export type CoreFn<C extends Core<any>> = (this: Immutable<C> & Context, core: Immutable<C> & Context) => any
 export type Immutable<T> = Omit<T, 'update'>
 export interface Context {
+  /**
+   * Declare that the remainder of evaluation is a pure function of the provided arguments.
+   * 
+   * If the core function has never been evaluated before, this does nothing.
+   * Otherwise, the provided values are shallowly compared to the previous values. If they
+   * are identical, `pure` throws `ROLLBACK`, immediately halting evaluation and instructing
+   * the processor to use the previously stored value.
+   * 
+   * `pure` can be called multiple times, but must be called deterministically and in the
+   * same order (ala a react hook).
+   * 
+   * @param passIfChanged arguments to compare
+   */
   pure(...passIfChanged: any[]): void
+
+  /**
+   * Report one or more errors
+   * 
+   * @param errors errors to report
+   */
   report(...errors: Error[]): void
 }
 
