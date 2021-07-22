@@ -103,8 +103,8 @@ export class Core<T> {
     throw ErrCheckFailed(errors)
   }
 
-  update(update: (data: T) => T) {
-    this._data = update(this.data)
+  update(update: (this: this, core: this) => T) {
+    this._data = update.call(this, this)
   }
 
   protected pure(...passIfChanged: any[]) {

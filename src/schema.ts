@@ -64,7 +64,10 @@ export class CoreSchema extends Core<DocumentNode> {
     const name = this.features.documentName(url)
     const feature = this.features.find(url)
     const match = url.isDirective
+      // if we were given a directive url, match exactly that directive
       ? (dir: DirectiveNode) => dir.name.value === name
+      // if we were given a feature url, collect all directives from
+      // that feature
       : (dir: DirectiveNode) => this.featureFor(dir) === feature
 
     if (!hasDirectives(node)) return
