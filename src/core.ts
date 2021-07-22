@@ -36,9 +36,9 @@ export interface Context {
   report(...errors: Error[]): void
 }
 
-export const ErrNoLayerData = (causes?: Error[]) =>
-  err('NoLayerData', {
-    message: 'no layer data',
+export const ErrNoData = (causes?: Error[]) =>
+  err('NoData', {
+    message: 'no data',
     causes
   })
 
@@ -64,10 +64,10 @@ export class Core<T> {
   get<F extends CoreFn<this>>(fn: F): ReturnType<F> {
     const cell = this.getCell(fn)
     this.evaluate(cell, fn)
-    if (!cell.result) { throw ErrNoLayerData() }
+    if (!cell.result) { throw ErrNoData() }
     if (cell.result.data === undefined) {
       if (cell.result.errors?.length === 1) throw cell.result.errors[0]
-      throw ErrNoLayerData(cell.result.errors)
+      throw ErrNoData(cell.result.errors)
     }
     return cell.result.data
   }
@@ -103,8 +103,8 @@ export class Core<T> {
     throw ErrCheckFailed(errors)
   }
 
-  update(update: (this: this, core: this) => T) {
-    this._data = update.call(this, this)
+  update(update: (data: T) => T) {
+    this._data = update(this.data)
   }
 
   protected pure(...passIfChanged: any[]) {

@@ -368,16 +368,14 @@ describe("CoreSchema", () => {
         },
       ]
     `);
-
-    example.update(core => {
-      const feature = core.features?.find('https://two.example.com/other/v1.2')
-      return visit(core.document, {
-        Directive(node) {          
-          if (node.name.value === feature?.name) return null;
-          return;
-        },
-      })
-    });
+    
+    const feature = example.features?.find('https://two.example.com/other/v1.2')
+    example.update(document => visit(document, {
+      Directive(node) {          
+        if (node.name.value === feature?.name) return null;
+        return;
+      },
+    }));
 
     expect([
       ...example.read("https://two.example.com/other/v1.0", example.schema),

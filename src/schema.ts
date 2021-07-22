@@ -56,7 +56,7 @@ export class CoreSchema extends Core<DocumentNode> {
   get features(): Features { return this.get(features) }  
   get names(): Map<string, Feature> { return this.get(names) }
 
-  *read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode) {
+  *read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode): Generator<Item, void, unknown> {
     const url =
       directive instanceof FeatureUrl ? directive
       : typeof directive === 'string' ? FeatureUrl.parse(directive)
