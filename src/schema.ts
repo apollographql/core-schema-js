@@ -118,7 +118,7 @@ export function schema(this: CoreSchemaContext) {
   return schema
 }
 
-export function features(this: CoreSchemaContext) {
+export function features(this: CoreSchemaContext): Features {
   const schema = this.schema
   this.pure(...schema.directives ?? [])
   const noCoreErrors = []
@@ -149,7 +149,7 @@ export function features(this: CoreSchemaContext) {
   return features
 }
 
-export function names(this: CoreSchemaContext) {
+export function names(this: CoreSchemaContext): Map<string, Feature> {
   const {features} = this
   this.pure(features)
   const names: Map<string, Feature[]> = new Map
@@ -175,42 +175,6 @@ export interface Item {
   feature: Feature,
   canonicalName: string,
   data?: any
-}
-
-export function reader(directive: GraphQLDirective | FeatureUrl | string) {  
-  const url =
-    directive instanceof FeatureUrl ? directive
-    : typeof directive === 'string' ? FeatureUrl.parse(directive)
-    : FeatureUrl.parse(directive.extensions?.specifiedBy)
-
-  return (core: CoreSchemaContext) => {
-    core.pure(core.features)
-    const name = core.features.documentName(url)
-    const feature = core.features.find(url)
-    core.pure(name, feature?.url.toString())
-    const match = url.isDirective
-      ? (dir: DirectiveNode) => dir.name.value === name
-      : (dir: DirectiveNode) => core.featureFor(dir) === feature
-    return function *(node: ASTNode) {
-      if (!hasDirectives(node)) return
-      if (!feature) return
-      for (const d of node.directives) {
-        if (match(d)) {
-          const data = directive instanceof GraphQLDirective
-            ? getArgumentValues(directive, d)
-            : undefined
-          const item: Item = {
-            node,
-            directive: d,            
-            feature,
-            canonicalName: '@' + feature?.canonicalName(d.name.value),
-          }
-          if (data != null) item.data = data
-          yield item
-        }
-      }
-    }
-  }
 }
 
 const CORE_VERSIONS = new Set([
