@@ -75,8 +75,8 @@ describe("core.get", () => {
   })
 });
 
-describe("ways core can fail", () => {
-  it("throws EvalStackEmpty if you access .currentCell outside of an executing corefn", () => {
+describe("weird ways core can fail", () => {
+  it("throws EvalStackEmpty if you access .currentCell outside of an executing corefn (types generally prevent this)", () => {
     expect(
       () => (new Core("") as any).currentCell
     ).toThrowErrorMatchingInlineSnapshot(
