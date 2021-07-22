@@ -13,7 +13,7 @@ export type Props = {
 }
 
 export class GraphQLErrorExt<C extends string> extends GraphQLError {
-  static readonly EXCLUDE = new Set('nodes source positions path originalError extensions'.split(' '))
+  static readonly BASE_PROPS = new Set('nodes source positions path originalError extensions'.split(' '))
 
   constructor(public readonly code: C, message: string, props?: Props) {
     super(message,
@@ -25,7 +25,7 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
       props?.extensions
     )
     if (props) for (const prop in props) {
-      if (!GraphQLErrorExt.EXCLUDE.has(prop)) {
+      if (!GraphQLErrorExt.BASE_PROPS.has(prop)) {
         (this as any)[prop] = (props as any)[prop]
       }
     }
