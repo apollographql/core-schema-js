@@ -1,13 +1,15 @@
-import { default as ERR, ok, Result } from './err'
+import err from './error'
 import { asString, AsString } from './is'
 
 export type AsVersion = AsString | [number, number]
 
 export default (...input: AsVersion) => Version.from(...input)
 
-export const ErrVersionParse = ERR `VersionParse` (
-  (props: { got: string }) =>
-    `expected a version specifier like "v9.8", got "${props.got}"`)
+export const ErrVersionParse = (input: string) =>
+  err('VersionParse', {
+    message: `expected a version specifier like "v9.8", got "${input}"`,
+    input,
+  })
 
 /**
  * Versions are a (major, minor) number pair.
@@ -34,13 +36,9 @@ export class Version {
    * ```
    */
   public static parse(input: string): Version {
-    return this.decode(input).unwrap()
-  }
-
-  public static decode(input: string): Result<Version> {
     const match = input.match(this.VERSION_RE)
-    if (!match) return ErrVersionParse({ got: input })
-    return ok(new this(+match[1], +match[2]))
+    if (!match) throw ErrVersionParse(input)
+    return new this(+match[1], +match[2])
   }
 
   public static from(...input: AsVersion) {

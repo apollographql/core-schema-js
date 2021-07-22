@@ -109,6 +109,3 @@ function getPrefix(name: string, sep = '__'): [string | null, string] {
   if (idx === -1) return [null, name]
   return [name.substr(0, idx), name.substr(idx + sep.length)]
 }
-
-const hasName = (node: any): node is ASTNode & { name: NameNode } =>
-  isAst(node?.name, 'Name')

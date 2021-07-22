@@ -1,9 +1,11 @@
 import { ASTNode, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, parse, SchemaDefinitionNode, Source } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
-import Core, { CoreFn, Context } from './core'
+import Core, { CoreFn, Context, Immutable } from './core'
 import { err } from './error'
 import FeatureUrl from './feature-url'
 import Features, { Feature } from './features'
+import { hasDirectives, hasName, isAst } from './is'
+import { getPrefix } from './names'
 
 
 const ErrExtraSchema = (def: SchemaDefinitionNode) =>
@@ -34,7 +36,7 @@ const ErrOverlappingNames = (name: string, features: Feature[]) =>
     nodes: features.map(f => f.directive)
   })
 
-export type CoreSchemaContext = Readonly<CoreSchema> & Context
+export type CoreSchemaContext = Immutable<CoreSchema> & Context
 export class CoreSchema extends Core<DocumentNode> {
   public static graphql(parts: TemplateStringsArray, ...replacements: any[]) {
     return CoreSchema.fromSource(
@@ -51,18 +53,28 @@ export class CoreSchema extends Core<DocumentNode> {
   }
 
   get document(): DocumentNode { return this.data }
-  get schemaDefinition(): SchemaDefinitionNode { return this.get(schemaDefinition) }
+  get schema(): SchemaDefinitionNode { return this.get(schema) }
   get features(): Features { return this.get(features) }  
   get names(): Map<string, Feature> { return this.get(names) }
 
-  read(node: ASTNode, directive: GraphQLDirective) {
+  read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode) {
     return this.get(reader(directive)) (node)
+  }
+
+  featureFor(node: ASTNode) {
+    if (!hasName(node)) return
+    
+    const [prefix] = getPrefix(node.name.value)
+    if (prefix || isAst(node, 'Directive', 'DirectiveDefinition')) {      
+      return this.names.get(prefix ?? node.name.value)
+    }
+    return null
   }
 }
 
 export default CoreSchema
 
-export function schemaDefinition(this: CoreSchemaContext) {
+export function schema(this: CoreSchemaContext) {
   let schema: SchemaDefinitionNode | null = null
   for (const def of this.document.definitions) {
     if (def.kind === 'SchemaDefinition') {
@@ -79,7 +91,7 @@ export function schemaDefinition(this: CoreSchemaContext) {
 }
 
 export function features(this: CoreSchemaContext) {
-  const schema = this.schemaDefinition
+  const schema = this.schema
   this.gate(...schema.directives ?? [])
   const noCoreErrors = []
   let coreFeature: Feature | null = null
@@ -90,11 +102,7 @@ export function features(this: CoreSchemaContext) {
       if (CORE_VERSIONS.has(candidate.feature) &&
           d.name.value === (candidate.as ?? 'core')) {
         const url = FeatureUrl.parse(candidate.feature)
-        coreFeature = {
-          url,
-          name: candidate.as ?? url.name,
-          directive: d
-        }
+        coreFeature = new Feature(url, candidate.as ?? url.name, d)
       }
     } catch (err) {
       noCoreErrors.push(err)
@@ -103,12 +111,7 @@ export function features(this: CoreSchemaContext) {
     if (coreFeature && d.name.value === coreFeature.name) try {
       const values = getArgumentValues($core, d)
       const url = FeatureUrl.parse(values.feature)
-      features.add({
-        url,
-        name: values.as ?? url.name,
-        purpose: values.for,
-        directive: d
-      })
+      features.add(new Feature(url, values.as ?? url.name, d, values.for))
     } catch (err) {
       this.report(ErrBadFeature(d, err))
     }
@@ -138,26 +141,44 @@ export function names(this: CoreSchemaContext) {
   return output
 }
 
-const ErrNotDirective = (url: FeatureUrl) =>
-  err('NotDirective', {
-    message: `feature url "${url}" provided to read() must reference a directive`,
-    url,
-  })
+export interface Item {
+  node: ASTNode
+  directive: DirectiveNode,
+  feature: Feature,
+  canonicalName: string,
+  data?: any
+}
 
-export function reader(directive: GraphQLDirective) {
-  const url = FeatureUrl.parse(directive.extensions?.specifiedBy)
-  if (!url.isDirective)
-    throw ErrNotDirective(url)
+export function reader(directive: GraphQLDirective | FeatureUrl | string) {  
+  const url =
+    directive instanceof FeatureUrl ? directive
+    : typeof directive === 'string' ? FeatureUrl.parse(directive)
+    : FeatureUrl.parse(directive.extensions?.specifiedBy)
+
   return (core: CoreSchemaContext) => {
     core.gate(core.features)
     const name = core.features.documentName(url)
-    return function *(node: ASTNode) {      
-      for (const d of (node as any).directives || []) {
-        if (d.name.value === name) {
-          yield {
+    const feature = core.features.find(url)
+    core.gate(name, feature?.url.toString())
+    const match = url.isDirective
+      ? (dir: DirectiveNode) => dir.name.value === name
+      : (dir: DirectiveNode) => core.featureFor(dir) === feature
+    return function *(node: ASTNode) {
+      if (!hasDirectives(node)) return
+      if (!feature) return
+      for (const d of node.directives) {
+        if (match(d)) {
+          const data = directive instanceof GraphQLDirective
+            ? getArgumentValues(directive, d)
+            : undefined
+          const item: Item = {
             node,
-            directive: d,
-            data: getArgumentValues(directive, d) }
+            directive: d,            
+            feature,
+            canonicalName: '@' + feature?.canonicalName(d.name.value),
+          }
+          if (data != null) item.data = data
+          yield item
         }
       }
     }

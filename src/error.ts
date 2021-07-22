@@ -88,3 +88,5 @@ export function err<C extends string, P extends Props>(code: C, props: P | strin
   const error = new GraphQLErrorExt(code, message, typeof props === 'string' ? undefined : props)
   return error as any
 }
+
+export default err

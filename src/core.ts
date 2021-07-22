@@ -1,8 +1,4 @@
-import { DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLError, GraphQLNonNull, GraphQLString, SchemaDefinitionNode, parse, DirectiveNode, Source, printError, ASTNode } from 'graphql'
-import { getArgumentValues } from 'graphql/execution/values'
 import { err, GraphQLErrorProps } from './error'
-import FeatureUrl from './feature-url'
-import Features, { Feature, ReadonlyFeatures } from './features'
 
 interface Ok<D> {
   data: D
@@ -15,11 +11,12 @@ interface HasErrors<D> {
 
 type Result<D> = Ok<D> | HasErrors<D>
 
-export type CoreFn<C extends Core<any>> = (this: Readonly<C> & Context, core: Readonly<C> & Context) => any
+export type CoreFn<C extends Core<any>> = (this: Immutable<C> & Context, core: Immutable<C> & Context) => any
+export type Immutable<T> = Omit<T, 'update'>
 
 export interface Context {
   gate(...passIfChanged: any[]): void
-  report(...errors: (Error | GraphQLErrorProps)[]): void
+  report(...errors: Error[]): void
 }
 
 export const ErrNoLayerData = (causes?: Error[]) =>
@@ -87,6 +84,10 @@ export class Core<T> {
     })
     if (!errors.length) return this
     throw ErrCheckFailed(errors)
+  }
+
+  update(update: (data: T) => T) {
+    this._data = update(this.data)
   }
 
   protected gate(...passIfChanged: any[]) {
@@ -211,7 +212,6 @@ class Cell {
   private _nextGuard = 0
 }
 
-type Readonly<T> = Omit<T, 'update'>
 type TraceCallback = (event: 'begin' | 'end', fn: CoreFn<any>, result?: Result<any>) => void
 
 

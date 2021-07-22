@@ -1,6 +1,7 @@
 import { DirectiveNode } from 'graphql'
 import { err } from './error'
 import FeatureUrl from './feature-url'
+import { getPrefix } from './names'
 
 const ErrTooManyFeatureVersions = (features: Feature[]) =>
   err('TooManyFeatureVersions', {
@@ -10,18 +11,28 @@ const ErrTooManyFeatureVersions = (features: Feature[]) =>
     nodes: features.map(f => f.directive),
   })
 
-export interface Feature {
-  url: FeatureUrl
-  name: string
-  purpose?: 'SECURITY' | 'EXECUTION'
-  directive: DirectiveNode
+export class Feature {
+  constructor(public readonly url: FeatureUrl,
+    public readonly name: string,
+    public readonly directive: DirectiveNode,   
+    public readonly purpose?: 'SECURITY' | 'EXECUTION') {}
+
+  canonicalName(docName: string): string | null {
+    const [prefix, base] = getPrefix(docName)
+    if (prefix) {
+      if (prefix !== this.name) return null
+      return `${this.url.name}__${base}`
+    }
+    if (base !== this.name) return null
+    return this.url.name
+  }
 }
 
 export interface ReadonlyFeatures {
   find(feature: FeatureUrl | string, exact?: boolean): Feature | null
   [Symbol.iterator](): Iterator<Feature>
 }
-  
+
 export class Features implements ReadonlyFeatures {
   add(feature: Feature) {
     const majors = this.findOrCreateIdentity(feature.url.identity)
