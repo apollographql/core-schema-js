@@ -7,7 +7,6 @@ import Features, { Feature } from './features'
 import { hasDirectives, hasName, isAst } from './is'
 import { getPrefix } from './names'
 
-
 const ErrExtraSchema = (def: SchemaDefinitionNode) =>
   err('ExtraSchema', {
     message: 'extra schema definition ignored',
@@ -92,7 +91,7 @@ export function schema(this: CoreSchemaContext) {
 
 export function features(this: CoreSchemaContext) {
   const schema = this.schema
-  this.gate(...schema.directives ?? [])
+  this.pure(...schema.directives ?? [])
   const noCoreErrors = []
   let coreFeature: Feature | null = null
   const features = new Features
@@ -123,7 +122,7 @@ export function features(this: CoreSchemaContext) {
 
 export function names(this: CoreSchemaContext) {
   const {features} = this
-  this.gate(features)
+  this.pure(features)
   const names: Map<string, Feature[]> = new Map
   for (const feature of features) {
     if (!names.has(feature.name)) names.set(feature.name, [])
@@ -156,10 +155,10 @@ export function reader(directive: GraphQLDirective | FeatureUrl | string) {
     : FeatureUrl.parse(directive.extensions?.specifiedBy)
 
   return (core: CoreSchemaContext) => {
-    core.gate(core.features)
+    core.pure(core.features)
     const name = core.features.documentName(url)
     const feature = core.features.find(url)
-    core.gate(name, feature?.url.toString())
+    core.pure(name, feature?.url.toString())
     const match = url.isDirective
       ? (dir: DirectiveNode) => dir.name.value === name
       : (dir: DirectiveNode) => core.featureFor(dir) === feature

@@ -13,7 +13,7 @@ type Result<D> = Ok<D> | HasErrors<D>
 export type CoreFn<C extends Core<any>> = (this: Immutable<C> & Context, core: Immutable<C> & Context) => any
 export type Immutable<T> = Omit<T, 'update'>
 export interface Context {
-  gate(...passIfChanged: any[]): void
+  pure(...passIfChanged: any[]): void
   report(...errors: Error[]): void
 }
 
@@ -88,9 +88,9 @@ export class Core<T> {
     this._data = update(this.data)
   }
 
-  protected gate(...passIfChanged: any[]) {
+  protected pure(...passIfChanged: any[]) {
     const {currentCell} = this
-    currentCell.gate(...passIfChanged)
+    currentCell.pure(...passIfChanged)
   }
 
   protected report(...errors: Error[]) {
@@ -152,7 +152,7 @@ export default Core
 
 export const ROLLBACK = Object.freeze({ ROLLBACK: true })
 class Cell {
-  gate(...changed: any[]) {
+  pure(...changed: any[]) {
     const index = this._nextGuard++
     const existing = this._guards[index]
     try {
