@@ -11,7 +11,7 @@ interface HasErrors<D> {
 type Result<D> = Ok<D> | HasErrors<D>
 
 export type CoreFn<C extends Core<any>> = (this: Immutable<C> & Context, core: Immutable<C> & Context) => any
-export type Immutable<T> = Omit<T, 'update'>
+export type Immutable<C extends Core<any>> = Omit<C, 'update'>
 export interface Context {
   /**
    * Declare that the remainder of evaluation is a pure function of the provided arguments.
