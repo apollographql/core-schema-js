@@ -6,24 +6,30 @@ import {err} from './error'
 
 export const ErrNoPath = (url: URL, node?: ASTNode) =>
   err('NoPath', {
-    message: `spec url does not have a path: ${url}`,    
+    message: `feature url does not have a path: ${url}`,
     url,
     nodes: node ? [node] : undefined
   })
 
 export const ErrNoName = (url: URL, node?: ASTNode) =>
   err('NoName', {
-    message: `spec url does not specify a name: ${url}`,
+    message: `feature url does not specify a name: ${url}`,
     url,
     nodes: node ? [node] : undefined
   })
 
 export const ErrNoVersion = (url: URL, node?: ASTNode) =>
   err('NoVersion', {
-    message: `spec url does not specify a version: ${url}`,
+    message: `feature url does not specify a version: ${url}`,
     url,
     nodes: node ? [node] : undefined
   })
+
+export interface ExtSpecifiedBy {
+  extensions?: {
+    specifiedBy?: string
+  }
+}
 
 export default class FeatureUrl {
   constructor(
@@ -36,12 +42,14 @@ export default class FeatureUrl {
   /// Parse a spec URL or throw
   public static parse(input: string, node?: ASTNode): FeatureUrl {
     const url = new URL(input)
+    if (!url.pathname || url.pathname === '/')
+      throw ErrNoPath(url, node)    
     const path = url.pathname.split('/')
     const verStr = path.pop()
     if (!verStr) throw ErrNoVersion(url, node)
     const version = Version.parse(verStr)
     const name = path[path.length - 1]
-    if (!name) throw ErrNoName(url)
+    if (!name) throw ErrNoName(url, node)
     const element = url.hash ? url.hash.slice(1): undefined
     url.hash = ''
     url.search = ''
