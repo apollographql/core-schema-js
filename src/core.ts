@@ -170,7 +170,7 @@ export class Core<T> {
 export default Core
 
 export const ROLLBACK = Object.freeze({ ROLLBACK: true })
-class Cell {
+export class Cell {
   pure(...changed: any[]) {
     const index = this._nextGuard++
     const existing = this._guards[index]

@@ -1,3 +1,3 @@
 export * from './schema'
 export * from './version'
-export * from './core'
+export {Core} from './core'
