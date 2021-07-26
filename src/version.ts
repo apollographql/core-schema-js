@@ -1,9 +1,4 @@
 import err from './error'
-import { asString, AsString } from './is'
-
-export type AsVersion = AsString | [number, number]
-
-export default (...input: AsVersion) => Version.from(...input)
 
 export const ErrVersionParse = (input: string) =>
   err('VersionParse', {
@@ -28,11 +23,9 @@ export class Version {
    *
    * # Example
    * ```
-   * use using::Version;
-   * assert_eq!(Version::parse("v1.0")?, Version(1, 0));
-   * assert_eq!(Version::parse("v0.1")?, Version(0, 1));
-   * assert_eq!(Version::parse("v987.65432")?, Version(987, 65432));
-   * # Ok::<(), using::VersionParseError>(())
+   * expect(Version.parse('v1.0')).toEqual(new Version(1, 0))
+   * expect(Version.parse('v0.1')).toEqual(new Version(0, 1))
+   * expect(Version.parse("v987.65432")).toEqual(new Version(987, 65432)) 
    * ```
    */
   public static parse(input: string): Version {
@@ -41,21 +34,15 @@ export class Version {
     return new this(+match[1], +match[2])
   }
 
-  public static from(...input: AsVersion) {
-    const str = asString(input)
-    return str
-      ? Version.parse(str.startsWith('v') ? str : `v${str}`)
-      : new Version(...input as [number, number])
-  }
-
   /**
    * Return true if and only if this Version satisfies the `required` version
    *
    * # Example
    * ```
-   * assert(new Version(1, 0).satisfies(new Version(1, 0)))
-   * assert(new Version(1, 2).satisfies(new Version(1, 0)))
-   * assert(!(new Version(2, 0).satisfies(new Version(1, 9))))
+   * expect(new Version(1, 0).satisfies(new Version(1, 0))).toBe(true)
+   * expect(new Version(1, 2).satisfies(new Version(1, 0))).toBe(true)
+   * expect(new Version(2, 0).satisfies(new Version(1, 9))).toBe(false)
+   * expect(new Version(0, 9).satisfies(new Version(0, 8))).toBe(false)
    * ```
    **/
   public satisfies(required: Version): boolean {
@@ -78,10 +65,21 @@ export class Version {
     return major > 0 ? `${major}.x` : String(this)
   }
 
+  /**
+   * return the string version tag, like "v2.9"
+   * 
+   * @returns a version tag
+   */
   public toString() {
     return `v${this.major}.${this.minor}`
   }
 
+  /**
+   * return true iff this version is exactly equal to the provided version
+   * 
+   * @param other the version to compare
+   * @returns true if versions are strictly equal
+   */
   public equals(other: Version) {
     return this.major === other.major && this.minor === other.minor
   }
@@ -89,61 +87,4 @@ export class Version {
   private static VERSION_RE = /^v(\d+)\.(\d+)$/
 }
 
-// TODO: Convert tests
-// #[cfg(test)]
-// mod tests {
-//     use super::{Version, VersionParseError};
-
-//     #[test]
-//     fn it_parses_valid_version_specifiers() -> Result<(), VersionParseError> {
-//         assert_eq!(Version::parse("v0.0")?, Version(0, 0));
-//         assert_eq!(Version::parse("v1.0")?, Version(1, 0));
-//         assert_eq!(Version::parse("v99.0")?, Version(99, 0));
-//         assert_eq!(Version::parse("v2.3")?, Version(2, 3));
-//         assert_eq!(Version::parse("v12.34")?, Version(12, 34));
-//         assert_eq!(Version::parse("v987.654")?, Version(987, 654));
-//         Ok(())
-//     }
-
-//     #[test]
-//     fn it_errors_on_invalid_specifiers() {
-//         assert!(matches!(Version::parse("bloop"), Err(VersionParseError)));
-//         assert!(matches!(Version::parse("v0."), Err(VersionParseError)));
-//         assert!(matches!(Version::parse("v0.?"), Err(VersionParseError)));
-//         assert!(matches!(Version::parse("v1.x"), Err(VersionParseError)));
-//         assert!(matches!(
-//             Version::parse("v0.1-tags_are_not_supported"),
-//             Err(VersionParseError)
-//         ));
-//     }
-
-//     #[test]
-//     fn it_still_parses_version_specifiers_which_are_slightly_out_of_spec(
-//     ) -> Result<(), VersionParseError> {
-//         assert_eq!(Version::parse("v01.0002")?, Version(1, 2));
-//         Ok(())
-//     }
-
-//     #[test]
-//     fn it_compares_minor_version_differences_ok() {
-//         assert!(Version(1, 5).satisfies(&Version(1, 0)));
-//         assert!(!Version(1, 0).satisfies(&Version(1, 1)));
-//     }
-
-//     #[test]
-//     fn it_compares_zerodot_series_version_differences_ok() {
-//         assert!(Version(0, 1).satisfies(&Version(0, 1)));
-//         assert!(!Version(0, 2).satisfies(&Version(0, 1)));
-//     }
-
-//     #[test]
-//     fn it_compares_major_version_differences_ok() {
-//         assert!(!Version(2, 2).satisfies(&Version(1, 2)));
-//     }
-
-//     #[test]
-//     fn it_formats_itself() {
-//         assert_eq!(format!("{}", Version(0, 1)), "v0.1");
-//         assert_eq!(format!("{}", Version(1234, 5678)), "v1234.5678");
-//     }
-// }
+export default Version
