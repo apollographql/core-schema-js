@@ -89,7 +89,7 @@ export class Features implements ReadonlyFeatures {
 
   readonly features: Map<string, Map<string, Feature[]>> = new Map
 
-  private findOrCreateIdentity(identity: string) {
+  private findOrCreateIdentity(identity: string): Map<string, Feature[]> {
     const existing = this.features.get(identity)
     if (existing) return existing
     const created = new Map<string, Feature[]>()
