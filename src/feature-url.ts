@@ -81,7 +81,9 @@ export default class FeatureUrl {
   }
 
   get url() {
-    return `${this.identity}/${this.version}`
+    return this.element ?
+      `${this.identity}/${this.version}#${this.element}`
+      : `${this.identity}/${this.version}`
   }
 
   get isDirective() {
@@ -92,8 +94,12 @@ export default class FeatureUrl {
     return this.isDirective ? this.element?.slice(1) : this.element
   }
 
+  get base(): FeatureUrl {
+    if (!this.element) return this
+    return new FeatureUrl(this.identity, this.name, this.version)
+  }
+
   toString() {
-    const elStr = this.element ? (this.element + ' from ') : ''
-    return `${elStr}Feature <${this.url}>`
+    return this.url
   }
 }
