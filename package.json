@@ -12,7 +12,8 @@
     "build": "tsc -p .",
     "watch": "tsc -p . -w",
     "test": "jest",
-    "watch:test": "jest --watch"
+    "watch:test": "jest --watch",
+    "prepare": "npm run build"
   },
   "keywords": [
     "graphql",
