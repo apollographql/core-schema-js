@@ -4,6 +4,13 @@
 
 import { ErrNoData, ErrEvalStackEmpty, ErrCheckFailed } from "./core";
 import { ErrNoPath, ErrNoName, ErrNoVersion } from "./feature-url";
+import {
+  ErrExtraSchema,
+  ErrNoSchema,
+  ErrNoCore,
+  ErrBadFeature,
+  ErrOverlappingNames,
+} from "./schema";
 import { ErrVersionParse } from "./version";
 
 export type AnyError = ReturnType<
@@ -13,6 +20,11 @@ export type AnyError = ReturnType<
   | typeof ErrNoPath
   | typeof ErrNoName
   | typeof ErrNoVersion
+  | typeof ErrExtraSchema
+  | typeof ErrNoSchema
+  | typeof ErrNoCore
+  | typeof ErrBadFeature
+  | typeof ErrOverlappingNames
   | typeof ErrVersionParse
 >;
 
@@ -23,6 +35,11 @@ const ERROR_CODES = new Set([
   "NoPath",
   "NoName",
   "NoVersion",
+  "ExtraSchema",
+  "NoSchema",
+  "NoCore",
+  "BadFeature",
+  "OverlappingNames",
   "VersionParse",
 ]);
 

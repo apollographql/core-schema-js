@@ -12,6 +12,10 @@ const allModules = new Map
 async function main() {
   for (const file of await readdir(path.join(__dirname, 'dist'))) {
     if (!file.endsWith('.js')) continue
+    
+    // the index file re-exports some errors, ignore it
+    if (file === 'index.js') continue
+
     const modulePath = './' + path.join('dist', path.basename(file, '.js'))
     const sourcePath = './' + modulePath.slice('./dist/'.length)
     const mod = require(modulePath)
