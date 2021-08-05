@@ -1,6 +1,7 @@
-import { DirectiveNode } from 'graphql'
+import type { DirectiveNode, ASTNode, NameNode } from 'graphql'
 import { err } from './error'
 import FeatureUrl from './feature-url'
+import { isAst } from './is'
 import { getPrefix } from './names'
 
 const ErrTooManyFeatureVersions = (features: Feature[]) =>
@@ -17,14 +18,16 @@ export class Feature {
     public readonly directive: DirectiveNode,   
     public readonly purpose?: 'SECURITY' | 'EXECUTION') {}
 
-  canonicalName(docName: string): string | null {
-    const [prefix, base] = getPrefix(docName)
+  canonicalName(node: ASTNode & { name: NameNode }): string | null {
+    const [prefix, base] = getPrefix(node.name.value)
+    const directive = isAst(node, 'Directive', 'DirectiveDefinition') ? '@' : ''
     if (prefix) {
       if (prefix !== this.name) return null
-      return `${this.url.name}__${base}`
+      return `${directive}${this.url.name}__${base}`
     }
     if (base !== this.name) return null
-    return this.url.name
+    if (!directive) return null
+    return `${directive}${this.url.name}`
   }
 }
 

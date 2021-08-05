@@ -80,6 +80,10 @@ export default class FeatureUrl {
       this.version.equals(other.version)
   }
 
+  public withElement(element: string) {
+    return `${this.identity}/${this.version}#${element}`
+  }
+
   get url() {
     return this.element ?
       `${this.identity}/${this.version}#${this.element}`

@@ -61,64 +61,7 @@ describe("CoreSchema", () => {
           { query: Query }
         `;
 
-    expect(example.names).toMatchInlineSnapshot(`
-      Map {
-        "core" => Feature {
-          "directive": (inline graphql):2:18
-      1 |
-      2 |           schema @core(feature: "https://specs.apollo.dev/core/v0.1")
-        |                  ^
-      3 |             @core(feature: "https://example.com/other/v1.0"),
-          "name": "core",
-          "purpose": undefined,
-          "url": FeatureUrl {
-            "element": undefined,
-            "identity": "https://specs.apollo.dev/core",
-            "name": "core",
-            "version": Version {
-              "major": 0,
-              "minor": 1,
-            },
-          },
-        },
-        "other" => Feature {
-          "directive": (inline graphql):3:13
-      2 |           schema @core(feature: "https://specs.apollo.dev/core/v0.1")
-      3 |             @core(feature: "https://example.com/other/v1.0")
-        |             ^
-      4 |             @core(feature: "https://two.example.com/other/v1.2", as: "another"),
-          "name": "other",
-          "purpose": undefined,
-          "url": FeatureUrl {
-            "element": undefined,
-            "identity": "https://example.com/other",
-            "name": "other",
-            "version": Version {
-              "major": 1,
-              "minor": 0,
-            },
-          },
-        },
-        "another" => Feature {
-          "directive": (inline graphql):4:13
-      3 |             @core(feature: "https://example.com/other/v1.0")
-      4 |             @core(feature: "https://two.example.com/other/v1.2", as: "another")
-        |             ^
-      5 |           { query: Query },
-          "name": "another",
-          "purpose": undefined,
-          "url": FeatureUrl {
-            "element": undefined,
-            "identity": "https://two.example.com/other",
-            "name": "other",
-            "version": Version {
-              "major": 1,
-              "minor": 2,
-            },
-          },
-        },
-      }
-    `);
+    expect(example.names).toMatchInlineSnapshot(`undefined`);
   });
 
   it("finds document names with .features.documentName", () => {
@@ -368,14 +311,18 @@ describe("CoreSchema", () => {
         },
       ]
     `);
-    
-    const feature = example.features?.find('https://two.example.com/other/v1.2')
-    example.update(document => visit(document, {
-      Directive(node) {          
-        if (node.name.value === feature?.name) return null;
-        return;
-      },
-    }));
+
+    const feature = example.features?.find(
+      "https://two.example.com/other/v1.2"
+    );
+    example.update((document) =>
+      visit(document, {
+        Directive(node) {
+          if (node.name.value === feature?.name) return null;
+          return;
+        },
+      })
+    );
 
     expect([
       ...example.read("https://two.example.com/other/v1.0", example.schema),

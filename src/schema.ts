@@ -1,10 +1,11 @@
-import { ASTNode, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, parse, SchemaDefinitionNode, Source } from 'graphql'
+import { ASTNode, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, parse, SchemaDefinitionNode, Source, visit } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
+import { DefinitionNode } from 'graphql/language/ast'
 import Core, { CoreFn, Context, Immutable } from './core'
 import { err } from './error'
 import FeatureUrl from './feature-url'
 import Features, { Feature } from './features'
-import { hasDirectives, hasName, isAst } from './is'
+import { hasDirectives, hasName, isAst, isDefinition } from './is'
 import { getPrefix } from './names'
 
 export const ErrExtraSchema = (def: SchemaDefinitionNode) =>
@@ -51,14 +52,15 @@ export class CoreSchema extends Core<DocumentNode> {
   }
 
   check(...fns: CoreFn<this>[]): this {
-    if (!fns.length) fns = [features, names]
+    if (!fns.length) fns = [features, namespaces]
     return super.check(...fns)
   }
 
   get document(): DocumentNode { return this.data }
   get schema(): SchemaDefinitionNode { return this.get(schema) }
-  get features(): Features { return this.get(features) }  
-  get names(): Map<string, Feature> { return this.get(names) }
+  get features(): Features { return this.get(features) }
+  get namespaces(): Map<string, Feature> { return this.get(namespaces) }
+  get namedDefinitions(): Map<string, DefinitionNode[]> { return this.get(namedDefinitions) }
 
   *read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode): Generator<Item, void, unknown> {
     const url =
@@ -85,7 +87,7 @@ export class CoreSchema extends Core<DocumentNode> {
           node,
           directive: d,            
           feature,
-          canonicalName: '@' + feature?.canonicalName(d.name.value),
+          canonicalName: feature?.canonicalName(d)!,
         }
         if (data != null) item.data = data
         yield item
@@ -97,7 +99,7 @@ export class CoreSchema extends Core<DocumentNode> {
     if (!hasName(node)) return  
     const [prefix] = getPrefix(node.name.value)
     if (prefix || isAst(node, 'Directive', 'DirectiveDefinition')) {      
-      return this.names.get(prefix ?? node.name.value)
+      return this.namespaces.get(prefix ?? node.name.value)
     }
     return
   }
@@ -152,7 +154,7 @@ export function features(this: CoreSchemaContext): Features {
   return features
 }
 
-export function names(this: CoreSchemaContext): Map<string, Feature> {
+export function namespaces(this: CoreSchemaContext): Map<string, Feature> {
   const {features} = this
   this.pure(features)
   const names: Map<string, Feature[]> = new Map
@@ -170,6 +172,42 @@ export function names(this: CoreSchemaContext): Map<string, Feature> {
     output.set(name, features[0])
   }
   return output
+}
+
+export function references(this: CoreSchemaContext): Map<string, ASTNode[]> {
+  this.pure(this.document)
+  const output: Map<string, ASTNode[]> = new Map
+  visit(this.document, {
+    NamedType(node) {
+      const existing = output.get(node.name.value)
+      if (existing) {
+        existing.push(node)
+        return
+      }
+      output.set(node.name.value, [node])
+      return
+    }    
+  })
+  return output
+}
+
+export function namedDefinitions(this: CoreSchemaContext): Map<string, DefinitionNode[]> {
+  this.pure(this.document)
+  const output: Map<string, DefinitionNode[]> = new Map
+  visit(this.document, {
+    enter(node) {
+      if (!isDefinition(node)) return
+      if (!hasName(node)) return
+      const existing = output.get(node.name?.value)
+      if (existing) {
+        existing.push(node)
+        return
+      }
+      output.set(node.name.value, [node])
+      return
+    }
+  })
+  return output  
 }
 
 export interface Item {
