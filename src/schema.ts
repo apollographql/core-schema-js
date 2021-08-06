@@ -1,7 +1,8 @@
 import { ASTNode, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, parse, SchemaDefinitionNode, Source, visit } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
-import { DefinitionNode } from 'graphql/language/ast'
-import Core, { CoreFn, Context, Immutable } from './core'
+import { DefinitionNode, NameNode } from 'graphql/language/ast'
+import { CoreFn, Context, Const } from './core'
+import { Editor } from './edit'
 import { err } from './error'
 import FeatureUrl from './feature-url'
 import Features, { Feature } from './features'
@@ -37,18 +38,46 @@ export const ErrOverlappingNames = (name: string, features: Feature[]) =>
     message: `the name "${name}" is defined by multiple features`,
     name,
     features,
-    nodes: features.map(f => f.directive)
+    nodes: features.map(f => f.directive).filter(Boolean) as DirectiveNode[]
   })
 
-export type CoreSchemaContext = Immutable<CoreSchema> & Context
-export class CoreSchema extends Core<DocumentNode> {
+
+export class Schema extends Const<DocumentNode> {
   public static graphql(parts: TemplateStringsArray, ...replacements: any[]) {
-    return CoreSchema.fromSource(
+    return this.fromSource(
       new Source(String.raw.call(null, parts, ...replacements), '(inline graphql)'))
   }
 
   public static fromSource(source: Source) {
-    return new CoreSchema(parse(source))
+    return new this(parse(source))
+  }
+
+  get document(): DocumentNode { return this.data }
+
+  get namedChildren(): Map<string, readonly DefinitionNode[]> {
+    return this.get(namedDefinitions)
+  }
+
+  editor(): Editor<this> {
+    return new Editor(this)
+  }
+
+  edit(perform: (editor: Editor<this & Context>) => void): this {
+    return this.get(core => {
+      const editor = core.editor()
+      perform(editor as Editor<this & Context>)
+      return editor.apply()
+    })
+  }
+}
+
+export class CoreSchema extends Schema {
+  public static graphql(parts: TemplateStringsArray, ...replacements: any[]): CoreSchema {
+    return super.graphql(parts, ...replacements) as CoreSchema
+  }
+
+  public static fromSource(source: Source): CoreSchema {
+    return super.fromSource(source) as CoreSchema
   }
 
   check(...fns: CoreFn<this>[]): this {
@@ -56,11 +85,9 @@ export class CoreSchema extends Core<DocumentNode> {
     return super.check(...fns)
   }
 
-  get document(): DocumentNode { return this.data }
   get schema(): SchemaDefinitionNode { return this.get(schema) }
   get features(): Features { return this.get(features) }
   get namespaces(): Map<string, Feature> { return this.get(namespaces) }
-  get namedDefinitions(): Map<string, DefinitionNode[]> { return this.get(namedDefinitions) }
 
   *read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode): Generator<Item, void, unknown> {
     const url =
@@ -107,7 +134,7 @@ export class CoreSchema extends Core<DocumentNode> {
 
 export default CoreSchema
 
-export function schema(this: CoreSchemaContext): SchemaDefinitionNode {
+export function schema(this: CoreSchema & Context): SchemaDefinitionNode {
   let schema: SchemaDefinitionNode | null = null
   for (const def of this.document.definitions) {
     if (def.kind === 'SchemaDefinition') {
@@ -123,7 +150,7 @@ export function schema(this: CoreSchemaContext): SchemaDefinitionNode {
   return schema
 }
 
-export function features(this: CoreSchemaContext): Features {
+export function features(this: CoreSchema & Context): Features {
   const schema = this.schema
   this.pure(...schema.directives ?? [])
   const noCoreErrors = []
@@ -154,7 +181,7 @@ export function features(this: CoreSchemaContext): Features {
   return features
 }
 
-export function namespaces(this: CoreSchemaContext): Map<string, Feature> {
+export function namespaces(this: CoreSchema & Context): Map<string, Feature> {
   const {features} = this
   this.pure(features)
   const names: Map<string, Feature[]> = new Map
@@ -174,7 +201,7 @@ export function namespaces(this: CoreSchemaContext): Map<string, Feature> {
   return output
 }
 
-export function references(this: CoreSchemaContext): Map<string, ASTNode[]> {
+export function references(this: Schema & Context): Map<string, ASTNode[]> {
   this.pure(this.document)
   const output: Map<string, ASTNode[]> = new Map
   visit(this.document, {
@@ -191,23 +218,23 @@ export function references(this: CoreSchemaContext): Map<string, ASTNode[]> {
   return output
 }
 
-export function namedDefinitions(this: CoreSchemaContext): Map<string, DefinitionNode[]> {
+export function namedDefinitions(this: Schema & Context): Map<string, readonly DefinitionNode[]> {
   this.pure(this.document)
-  const output: Map<string, DefinitionNode[]> = new Map
-  visit(this.document, {
-    enter(node) {
-      if (!isDefinition(node)) return
-      if (!hasName(node)) return
-      const existing = output.get(node.name?.value)
-      if (existing) {
-        existing.push(node)
-        return
-      }
-      output.set(node.name.value, [node])
-      return
+  return groupByName(this.document.definitions)
+}
+
+export function groupByName<N extends ASTNode & { name?: NameNode }>(nodes: readonly N[]): Map<string, readonly N[]> {
+  const output: Map<string, N[]> = new Map
+  for (const node of nodes) {
+    if (!hasName(node)) continue
+    const existing = output.get(node.name?.value)
+    if (existing) {
+      existing.push(node)
+      continue
     }
-  })
-  return output  
+    output.set(node.name.value, [node])    
+  }
+  return output
 }
 
 export interface Item {

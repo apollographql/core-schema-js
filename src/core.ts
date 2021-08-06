@@ -10,8 +10,15 @@ interface HasErrors<D> {
 
 type Result<D> = Ok<D> | HasErrors<D>
 
-export type CoreFn<C extends Core<any>> = (this: Immutable<C> & Context, core: Immutable<C> & Context) => any
-export type Immutable<C extends Core<any>> = Omit<C, 'update'>
+export type CoreFn<C extends Core<any>> = 
+  ((this: C & Context, core: C & Context) => any) |
+  { forCore(core: C & Context): any }
+
+export type Return<F extends CoreFn<any>> =
+  F extends { forCore(...args: any): infer R } ? R
+  : F extends (...args: any) => infer R ? R
+  : never
+
 export interface Context {
   /**
    * Declare that the remainder of evaluation is a pure function of the provided arguments.
@@ -54,14 +61,29 @@ export const ErrCheckFailed = (causes: Error[]) =>
     causes
   })
 
-export class Core<T> {
+export interface Core<T> {
+  readonly data: T
+  get<F extends CoreFn<this>>(fn: F): Return<F>
+  try<F extends CoreFn<this>>(fn: F): Return<F> | undefined
+  getResult<F extends CoreFn<this>>(fn: F): Result<Return<F>>
+  check(...fns: CoreFn<this>[]): this
+  withData(data: T): this
+  
+  mut(): this & Mutable<T>
+}
+
+export interface Mutable<T> {
+  update(fn: (data: T) => T): this
+}
+
+export class Const<T> implements Core<T> {
   constructor(data: T) {
     this._data = data
   }
 
   get data() { return this._data }
 
-  get<F extends CoreFn<this>>(fn: F): ReturnType<F> {
+  get<F extends CoreFn<this>>(fn: F): Return<F> {
     const cell = this.getCell(fn)
     this.evaluate(cell, fn)
     if (!cell.result) { throw ErrNoData() }
@@ -72,15 +94,15 @@ export class Core<T> {
     return cell.result.data
   }
   
-  try<F extends CoreFn<this>>(fn: F): ReturnType<F> | undefined {
+  try<F extends CoreFn<this>>(fn: F): Return<F> | undefined {
     const cell = this.getCell(fn)
     this.evaluate(cell, fn)
     return cell.result?.data
   }
 
-  getResult<F extends CoreFn<this>>(fn: F): Result<ReturnType<F>> {
+  getResult<F extends CoreFn<this>>(fn: F): Result<Return<F>> {
     const cell = this.getCell(fn)
-    let result: Result<ReturnType<F>> = { errors: [] }
+    let result: Result<Return<F>> = { errors: [] }
     this.trace(() => {
       this.evaluate(cell, fn)
       result.data = cell.result?.data
@@ -103,8 +125,12 @@ export class Core<T> {
     throw ErrCheckFailed(errors)
   }
 
-  update(update: (data: T) => T) {
-    this._data = update(this.data)
+  withData(data: T) {
+    return new (this.constructor as any)(data)
+  }
+
+  mut() {
+    return this.withData(this.data)
   }
 
   protected pure(...passIfChanged: any[]) {
@@ -160,6 +186,11 @@ export class Core<T> {
     return created
   }
 
+  protected update(fn: (data: T) => T): Mutable<T> {
+    this._data = fn(this.data)
+    return this as any as Mutable<T>  
+  }
+
   private _cells: WeakMap<CoreFn<this>, Cell> = new WeakMap
   private _stack: Cell[] = []
   private _traceStack: TraceCallback[] = []
@@ -202,7 +233,7 @@ export class Cell {
     this._nextGuard = 0
     let rollback = false
     try {
-      pending.data = fn.call(core, core)
+      pending.data = call(core, fn)
     } catch(err) {
       if (err === ROLLBACK) {
         rollback = true
@@ -228,5 +259,15 @@ export class Cell {
   private _guards: any[][] = []
   private _nextGuard = 0
 }
+
+function call<C extends Core<any> & Context, F extends CoreFn<C>>(core: C, fn: F) {
+  if (hasForCore(fn)) {
+    return fn.forCore(core)
+  }
+  return fn.call(core, core)
+}
+
+const hasForCore = (o: any): o is { forCore(core: any): any } =>
+  typeof o?.forCore === 'function'
 
 type TraceCallback = (event: 'begin' | 'end', fn: CoreFn<any>, result?: Result<any>) => void

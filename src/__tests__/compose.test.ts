@@ -1,8 +1,7 @@
-import { concat, federate } from "../compose";
+import { federate } from "../compose";
 import { Source, print } from "graphql";
 import fs from "fs";
 import path from "path";
-import CoreSchema from "../schema";
 
 const products = loadSubgraphSource("products");
 const reviews = loadSubgraphSource("reviews");
@@ -56,10 +55,6 @@ describe("federate", () => {
       2 |   schema
         |   ^
       3 |     @core(feature: "https://specs.apollo.dev/core/v0.2"),
-          reviews:1:1
-      1 | extend type Product @key(fields: "id") {
-        | ^
-      2 |   id: ID! @external,
           reviews:7:1
       6 |
       7 | """
@@ -78,7 +73,7 @@ describe("federate", () => {
 
   it("returns a denormalized tree", () => {
     expect(print(federate([products, reviews]).data)).toMatchInlineSnapshot(`
-      "schema @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/core/v0.2\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/key/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/requires/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/provides/v0.1\\") {
+      "schema @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/core/v0.2\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/key/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/requires/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/provides/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/external/v0.1\\") {
         query: Query
       }
 
@@ -120,6 +115,8 @@ describe("federate", () => {
         category: ProductCategory
         images(size: Int = 1000): [String]
         primaryImage(size: Int = 1000): String
+        reviews: [Review]
+        reviewSummary: ReviewSummary
       }
 
       enum ProductCategory {
@@ -138,14 +135,8 @@ describe("federate", () => {
         product(id: ID!): Product
       }
 
-      schema @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/core/v0.2\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/key/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/requires/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/provides/v0.1\\") {
+      schema @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/core/v0.2\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/key/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/requires/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/provides/v0.1\\") @<'https://specs.apollo.dev/core/v0.2#@core'>(feature: \\"https://specs.apollo.dev/federation/external/v0.1\\") {
         query: Query
-      }
-
-      extend type Product @<'https://specs.apollo.dev/key/v0.1#@key'>(fields: \\"id\\") {
-        id: ID! @external
-        reviews: [Review]
-        reviewSummary: ReviewSummary
       }
 
       \\"\\"\\"

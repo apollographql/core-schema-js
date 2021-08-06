@@ -1,13 +1,13 @@
-import Core, { Cell, Context, Immutable, ROLLBACK } from "../core";
+import Core, { Cell, Context, Const, ROLLBACK } from "../core";
 
 describe("core.get", () => {
   it("evaluates core fns against the stored value", () => {
-    const core = new Core(4);
+    const core = new Const(4);
     expect(core.get((core) => core.data ** 2)).toEqual(16);
   });
 
   it("re-evaluates functions every time if they never call pure()", () => {
-    const core = new Core(4);
+    const core = new Const(4);
     let count = 0;
     const incr = () => ++count;
     core.get(incr);
@@ -17,14 +17,14 @@ describe("core.get", () => {
   });
 
   it("throws NoData if the fn returns undefined", () => {
-    const core = new Core(4);
+    const core = new Const(4);
     expect(() => core.get(() => void 0)).toThrowErrorMatchingInlineSnapshot(
       `"no data"`
     );
   });
 
   it("throws the underlying exception if the fn throws", () => {
-    const core = new Core(4);
+    const core = new Const(4);
     expect(() =>
       core.get(() => {
         throw new Error("ahhhh");
@@ -33,7 +33,7 @@ describe("core.get", () => {
   });
 
   it("throws NoData if there are multiple errors", () => {
-    const core = new Core(0);
+    const core = new Const(0);
     expect(() => {
       core.get((core) => {
         core.report(new Error("a"));
@@ -43,9 +43,9 @@ describe("core.get", () => {
   });
 
   it("does not re-evaluate if pure() arguments haven't changed", () => {
-    const core = new Core(4);
+    const core = new Const(4);
     let count = 0;
-    function incr(this: Immutable<Core<number>> & Context) {
+    function incr(this: Core<number> & Context) {
       this.pure(this.data);
       ++count;
       return this.data ** 2;
@@ -58,9 +58,9 @@ describe("core.get", () => {
   });
 
   it("does re-evaluate if pure() arguments have changed", () => {
-    const core = new Core(4);
+    const core = new Const(4).mut();
     let count = 0;
-    function incr(this: Immutable<Core<number>> & Context) {
+    function incr(this: Core<number> & Context) {
       this.pure("a", "b", "c", this.data);
       ++count;
       return this.data ** 2;
@@ -78,7 +78,7 @@ describe("core.get", () => {
 describe("weird ways core can fail", () => {
   it("throws EvalStackEmpty if you access .currentCell outside of an executing corefn (types generally prevent this)", () => {
     expect(
-      () => (new Core("") as any).currentCell
+      () => (new Const("") as any).currentCell
     ).toThrowErrorMatchingInlineSnapshot(
       `"this method must only be called from an evaluator, during evaluation. no evaluation is ongoing."`
     );

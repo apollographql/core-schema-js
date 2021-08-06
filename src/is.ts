@@ -36,7 +36,7 @@ export function isEmpty<T>(input: T[]): input is [] {
 }
 
 /*** ast-specific ***/
-import type { ASTKindToNode, ASTNode, DefinitionNode, DirectiveNode, NameNode } from 'graphql'
+import type { ASTKindToNode, ASTNode, DefinitionNode, DirectiveNode, FieldDefinitionNode, NameNode } from 'graphql'
 
 export function isAst<K extends ASTNode["kind"]>(obj: any, ...kinds: K[]): obj is ASTKindToNode[K] {
   return kinds.indexOf(obj?.kind) !== -1
@@ -53,6 +53,9 @@ export const hasName = (node: any): node is ASTNode & { name: NameNode } =>
   
 export const hasDirectives = (node: any): node is ASTNode & { directives: DirectiveNode[] } =>
   Array.isArray(node?.directives)
+
+export const hasFields = (node: any): node is ASTNode & { fields: FieldDefinitionNode[] } =>
+  Array.isArray(node?.fields)
 
 export type Maybe<T> = T | null | undefined
 export type Must<T> = Exclude<T, null | undefined>

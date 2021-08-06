@@ -9,13 +9,13 @@ const ErrTooManyFeatureVersions = (features: Feature[]) =>
     message: `too many versions of ${features[0].url.identity} at v${features[0].url.version.series}`,
     features,
     major: features[0].url.version.major,
-    nodes: features.map(f => f.directive),
+    nodes: features.map(f => f.directive).filter(Boolean) as DirectiveNode[],
   })
 
 export class Feature {
   constructor(public readonly url: FeatureUrl,
-    public readonly name: string,
-    public readonly directive: DirectiveNode,   
+    public readonly name: string = url.name,
+    public readonly directive?: DirectiveNode,   
     public readonly purpose?: 'SECURITY' | 'EXECUTION') {}
 
   canonicalName(node: ASTNode & { name: NameNode }): string | null {
