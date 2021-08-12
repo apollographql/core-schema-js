@@ -7,31 +7,35 @@ import Features, { Feature } from './features'
 import { hasDirectives, hasName, isAst } from './is'
 import { getPrefix } from './names'
 
-const ErrExtraSchema = (def: SchemaDefinitionNode) =>
+export const ErrExtraSchema = (def: SchemaDefinitionNode) =>
   err('ExtraSchema', {
     message: 'extra schema definition ignored',
+    schemaDefinition: def,
     nodes: [def]
   })
 
-const ErrNoSchema = () =>
+export const ErrNoSchema = () =>
   err('NoSchema', 'no schema definitions found')
 
-const ErrNoCore = (causes: Error[]) =>
+export const ErrNoCore = (causes: Error[]) =>
   err('NoCore', {
     message: 'no core feature found',
     causes
   })
 
-const ErrBadFeature = (node: DirectiveNode, ...causes: Error[]) =>
+export const ErrBadFeature = (node: DirectiveNode, ...causes: Error[]) =>
   err('BadFeature', {
     message: 'bad core feature request',
+    directive: node,
     nodes: [node],
     causes
   })
 
-const ErrOverlappingNames = (name: string, features: Feature[]) =>
+export const ErrOverlappingNames = (name: string, features: Feature[]) =>
   err('OverlappingNames', {
     message: `the name "${name}" is defined by multiple features`,
+    name,
+    features,
     nodes: features.map(f => f.directive)
   })
 
