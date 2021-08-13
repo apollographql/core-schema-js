@@ -5,7 +5,7 @@
 to install via npm:
 
 ```sh
-npm install git@github.com:apollographql/core-schema-js
+npm install @apollo/core-schema
 ```
 
 to build from source:
