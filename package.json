@@ -23,7 +23,8 @@
   "author": "Apollo <opensource@apollographql.com>",
   "license": "MIT",
   "engines": {
-    "node": ">=12.13.0 <17.0"
+    "node": ">=12.13.0 <17.0",
+    "npm": "7.x"
   },
   "publishConfig": {
     "access": "public"
