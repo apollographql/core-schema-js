@@ -1,6 +1,6 @@
 {
   "name": "@apollo/core-schema",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Apollo Core Schema processing library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,8 +28,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "peerDependencies": {
     "graphql": "^14.5.0 || ^15.0.0"
   },
