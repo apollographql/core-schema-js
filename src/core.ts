@@ -207,7 +207,7 @@ export class Cell {
       if (err === ROLLBACK) {
         rollback = true
       } else {
-        this.report(err) 
+        this.report(err as Error)
       }
     } finally {
       this._nextGuard = 0
