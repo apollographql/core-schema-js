@@ -124,7 +124,7 @@ export function schema(this: CoreSchemaContext): SchemaDefinitionNode {
 export function features(this: CoreSchemaContext): Features {
   const schema = this.schema
   this.pure(...schema.directives ?? [])
-  const noCoreErrors = []
+  const noCoreErrors: Error[] = []
   let coreFeature: Feature | null = null
   const features = new Features
   for (const d of schema.directives || []) {
@@ -136,7 +136,7 @@ export function features(this: CoreSchemaContext): Features {
         coreFeature = new Feature(url, candidate.as ?? url.name, d)
       }
     } catch (err) {
-      noCoreErrors.push(err)
+      noCoreErrors.push(err as Error)
     }
 
     if (coreFeature && d.name.value === coreFeature.name) try {
@@ -144,7 +144,7 @@ export function features(this: CoreSchemaContext): Features {
       const url = FeatureUrl.parse(values.feature)
       features.add(new Feature(url, values.as ?? url.name, d, values.for))
     } catch (err) {
-      this.report(ErrBadFeature(d, err))
+      this.report(ErrBadFeature(d, err as Error))
     }
   }
   if (!coreFeature) throw ErrNoCore(noCoreErrors)
