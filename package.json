@@ -30,11 +30,11 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "graphql": "^15.7.2"
+    "graphql": "^15.7.2 || ^16.0.0"
   },
   "devDependencies": {
     "@types/jest": "27.0.3",
-    "graphql": "15.8.0",
+    "graphql": "16.0.1",
     "jest": "27.4.4",
     "prettier": "2.5.1",
     "ts-jest": "27.1.1",
