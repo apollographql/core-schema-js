@@ -15,6 +15,8 @@ export type Props = {
 export class GraphQLErrorExt<C extends string> extends GraphQLError {
   static readonly BASE_PROPS = new Set('nodes source positions path originalError extensions'.split(' '))
 
+  readonly name: string;
+
   constructor(public readonly code: C, message: string, props?: Props) {
     super(message,
       props?.nodes,
@@ -29,8 +31,9 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
         (this as any)[prop] = (props as any)[prop]
       }
     }
+
+    this.name = code;
   }
-  get name() { return this.code }
 
   throw(): never { throw this }
   toString() {
