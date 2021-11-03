@@ -2,6 +2,8 @@
 
 ## vNEXT
 
+## v0.2.0
+
 - __BREAKING__: Update graphql dev and peerDependency and fix `GraphQLError` usage. Update name assignment and remove name getter method [#20](https://github.com/apollographql/core-schema-js/pull/20)
 
 ## v0.1.1
