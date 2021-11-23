@@ -1,4 +1,4 @@
-import { ASTNode, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, parse, SchemaDefinitionNode, Source } from 'graphql'
+import { ASTNode, DirectiveLocation, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, Kind, parse, SchemaDefinitionNode, Source } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import Core, { CoreFn, Context, Immutable } from './core'
 import { err } from './error'
@@ -96,8 +96,8 @@ export class CoreSchema extends Core<DocumentNode> {
   featureFor(node: ASTNode): Feature | undefined {
     if (!hasName(node)) return  
     const [prefix] = getPrefix(node.name.value)
-    if (prefix || isAst(node, 'Directive', 'DirectiveDefinition')) {      
-      return this.names.get(prefix ?? node.name.value)
+    if (prefix || isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)) {
+      return this.names.get(prefix ?? node.name.value);
     }
     return
   }
@@ -121,6 +121,20 @@ export function schema(this: CoreSchemaContext): SchemaDefinitionNode {
   return schema
 }
 
+interface CoreArgs {
+  feature: string;
+  for?: "SECURITY" | "EXECUTION";
+  as?: string;
+}
+
+function isCoreArgs(maybeCoreArgs: unknown): maybeCoreArgs is CoreArgs {
+  return (
+    typeof maybeCoreArgs === "object" &&
+    maybeCoreArgs != null &&
+    "feature" in maybeCoreArgs
+  );
+}
+
 export function features(this: CoreSchemaContext): Features {
   const schema = this.schema
   this.pure(...schema.directives ?? [])
@@ -128,23 +142,39 @@ export function features(this: CoreSchemaContext): Features {
   let coreFeature: Feature | null = null
   const features = new Features
   for (const d of schema.directives || []) {
-    if (!coreFeature) try {
-      const candidate = getArgumentValues($core, d)
-      if (CORE_VERSIONS.has(candidate.feature) &&
-          d.name.value === (candidate.as ?? 'core')) {
-        const url = FeatureUrl.parse(candidate.feature)
-        coreFeature = new Feature(url, candidate.as ?? url.name, d)
+    if (!coreFeature) {
+      try {
+        const coreArgs = getArgumentValues($core, d);
+        if (isCoreArgs(coreArgs)) {
+          if (
+            CORE_VERSIONS.has(coreArgs.feature) &&
+            d.name.value === (coreArgs.as ?? "core")
+          ) {
+            const url = FeatureUrl.parse(coreArgs.feature);
+            coreFeature = new Feature(url, coreArgs.as ?? url.name, d);
+          }
+        } else {
+          throw new Error("Invalid arguments provided to core feature.");
+        }
+      } catch (err) {
+        noCoreErrors.push(err as Error);
       }
-    } catch (err) {
-      noCoreErrors.push(err as Error)
     }
 
-    if (coreFeature && d.name.value === coreFeature.name) try {
-      const values = getArgumentValues($core, d)
-      const url = FeatureUrl.parse(values.feature)
-      features.add(new Feature(url, values.as ?? url.name, d, values.for))
-    } catch (err) {
-      this.report(ErrBadFeature(d, err as Error))
+    if (coreFeature && d.name.value === coreFeature.name) {
+      try {
+        const coreArgs = getArgumentValues($core, d);
+        if (isCoreArgs(coreArgs)) {
+          const url = FeatureUrl.parse(coreArgs.feature);
+          features.add(
+            new Feature(url, coreArgs.as ?? url.name, d, coreArgs.for)
+          );
+        } else {
+          throw new Error("Invalid arguments provided to core feature.");
+        }
+      } catch (err) {
+        this.report(ErrBadFeature(d, err as Error));
+      }
     }
   }
   if (!coreFeature) throw ErrNoCore(noCoreErrors)
@@ -194,12 +224,18 @@ const Purpose = new GraphQLEnumType({
 })
 
 const $core = new GraphQLDirective({
-  name: '@core',
+  name: "@core",
   args: {
-    feature: { type: GraphQLNonNull(GraphQLString), },
+    feature: { type: new GraphQLNonNull(GraphQLString) },
     as: { type: GraphQLString },
-    'for': { type: Purpose }
+    for: { type: Purpose },
   },
-  locations: ['SCHEMA'],
+  locations: [DirectiveLocation.SCHEMA],
   isRepeatable: true,
-})
+});
+
+declare module 'graphql' {
+  interface GraphQLDirectiveExtensions {
+    specifiedBy: string;
+  }
+}

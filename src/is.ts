@@ -36,14 +36,14 @@ export function isEmpty<T>(input: T[]): input is [] {
 }
 
 /*** ast-specific ***/
-import type { ASTKindToNode, ASTNode, DirectiveNode, NameNode } from 'graphql'
+import { ASTKindToNode, ASTNode, DirectiveNode, Kind, NameNode } from 'graphql'
 
 export function isAst<K extends ASTNode["kind"]>(obj: any, ...kinds: K[]): obj is ASTKindToNode[K] {
   return kinds.indexOf(obj?.kind) !== -1
 }
 
 export const hasName = (node: any): node is ASTNode & { name: NameNode } =>
-  isAst(node?.name, 'Name')
+  isAst(node?.name, Kind.NAME)
   
 export const hasDirectives = (node: any): node is ASTNode & { directives: DirectiveNode[] } =>
   Array.isArray(node?.directives)
