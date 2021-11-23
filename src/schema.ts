@@ -224,7 +224,7 @@ const Purpose = new GraphQLEnumType({
 })
 
 const $core = new GraphQLDirective({
-  name: "@core",
+  name: "core",
   args: {
     feature: { type: new GraphQLNonNull(GraphQLString) },
     as: { type: GraphQLString },
