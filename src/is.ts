@@ -36,9 +36,10 @@ export function isEmpty<T>(input: T[]): input is [] {
 }
 
 /*** ast-specific ***/
-import { ASTKindToNode, ASTNode, DirectiveNode, Kind, NameNode } from 'graphql'
+import type { ASTKindToNode, ASTNode, DirectiveNode, NameNode } from 'graphql'
+import { Kind } from 'graphql';
 
-export function isAst<K extends ASTNode["kind"]>(obj: any, ...kinds: K[]): obj is ASTKindToNode[K] {
+export function isAst<K extends Kind>(obj: any, ...kinds: Kind[]): obj is ASTKindToNode[K] {
   return kinds.indexOf(obj?.kind) !== -1
 }
 
