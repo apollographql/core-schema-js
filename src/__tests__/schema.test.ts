@@ -1,4 +1,5 @@
 import {
+  DirectiveLocation,
   GraphQLDirective,
   GraphQLInt,
   GraphQLString,
@@ -150,8 +151,8 @@ describe("CoreSchema", () => {
         `;
 
     const other = new GraphQLDirective({
-      name: "@other",
-      locations: ["OBJECT", "FIELD_DEFINITION"],
+      name: "other",
+      locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
       args: {
         input: { type: GraphQLString },
       },
@@ -161,8 +162,8 @@ describe("CoreSchema", () => {
     });
 
     const another = new GraphQLDirective({
-      name: "@other",
-      locations: ["OBJECT", "FIELD_DEFINITION"],
+      name: "other",
+      locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
       args: {
         value: { type: GraphQLInt },
       },
