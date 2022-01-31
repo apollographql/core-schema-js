@@ -8,24 +8,12 @@ describe("version", () => {
       expect(Version.parse("v987.65432")).toEqual(new Version(987, 65432));
     });
 
-    it("throws on invalid versions", () => {
-      expect(() => Version.parse("bloop")).toThrowErrorMatchingInlineSnapshot(
-        `"expected a version specifier like \\"v9.8\\", got \\"bloop\\""`
-      );
-      expect(() => Version.parse("v1")).toThrowErrorMatchingInlineSnapshot(
-        `"expected a version specifier like \\"v9.8\\", got \\"v1\\""`
-      );
-      expect(() => Version.parse("v1.")).toThrowErrorMatchingInlineSnapshot(
-        `"expected a version specifier like \\"v9.8\\", got \\"v1.\\""`
-      );
-      expect(() => Version.parse("1.2")).toThrowErrorMatchingInlineSnapshot(
-        `"expected a version specifier like \\"v9.8\\", got \\"1.2\\""`
-      );
-      expect(() =>
-        Version.parse("v0.9-tags-are-not-supported")
-      ).toThrowErrorMatchingInlineSnapshot(
-        `"expected a version specifier like \\"v9.8\\", got \\"v0.9-tags-are-not-supported\\""`
-      );
+    it("returns null for invalid versions", () => {
+      expect(Version.parse("bloop")).toBeNull()
+      expect(Version.parse("v1")).toBeNull()
+      expect(Version.parse("v1.")).toBeNull()
+      expect(Version.parse("1.2")).toBeNull()
+      expect(Version.parse("v0.9-tags-are-not-supported")).toBeNull()
     });
   });
   describe(".satisfies", () => {

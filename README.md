@@ -16,152 +16,67 @@ npm test
 ```
 
 # quick examples
-
-## check a document
+## lookup names in a core schema
 ```typescript
-const core = CoreSchema.graphql `
-  schema
-    @core(feature: "https://lib.apollo.dev/core/v0.1")
-    @core(feature: "https://example.com/someSpec/v1.0")
-    @core(feature: "https://spec.example.io/another/v1.0", as: "renamed")
-  { query: Query }
+import {Scope, reference} from '@apollo/core'
 
-  type Query {
-    field: Int @someSpec(message: "this should go away")
-    another: String @renamed(message: "this stays")
-  }
-
-  enum someSpec__Values {
-    A B
-  }
-
-  enum someSpec__SomeEnum {
-    SOME_VALUE
-  }
-
-  directive @core(feature: String, as: String, export: Boolean)
-    on
-    | SCHEMA
-    | ENUM
-  directive @someSpec(message: String) on FIELD_DEFINITION
-  directive @renamed(message: String) on FIELD_DEFINITION
-  `
-
-core.check() // throws if there are any core errors on the document,
-             // otherwise returns the core (for chaining)
+const doc = Scope.create(fromDoc(gql `
+  extend schema
+    @link(url: "https://specs.apollo.dev/link/v0.3")
+    @link(url: "https://example.com/someSpec/v1.0")
+    @link(url: "https://spec.example.io/another/v1.0", as: "renamed")
+`))
+expect(doc.lookup(reference('@link'))).toBe(
+  directive('', "https://specs.apollo.dev/link/v0.3")
+)
+expect(doc.lookup(reference('renamed__Type'))).toBe(
+  type('Type', "https://spec.example.io/another/v1.0")
+)
 ```
 
-## extract specified metadata
+## build a document with implicit scope
 ```typescript
-import CoreSchema from '@apollo/core-schema'
+const frame = Scope.create(fromDoc(gql `
+  extend schema
+    @link(url: "https://specs.apollo.dev/link/v0.3")
+    @link(url: "https://specs.apollo.dev/federation/v1.0",
+          import: "@key @requires @provides @external")
+`))
 
-// define a directive binding
-const another = new GraphQLDirective({
-  name: "@other",
-  locations: ["OBJECT", "FIELD_DEFINITION"],
-  args: { value: { type: GraphQLInt } }
-  extensions: {
-    // exetnsions.specifiedBy MUST be present and MUST be a valid
-    // feature url. this tells the core schema processor what
-    // feature to look for in the document.
-    specifiedBy: "https://two.example.com/other/v1.0#@other",
-  },
-});
-
-// Parse a schema
-const example = CoreSchema.graphql`
-  schema @core(feature: "https://specs.apollo.dev/core/v0.1")
-    @core(feature: "https://example.com/other/v1.0")
-    @core(feature: "https://two.example.com/other/v1.2", as: "another")
-  { query: Query }
-
-  type User @other(input: "hello") {
-    field: Int @another(value: 32)
+const child = frame.child(fromDoc(gql `
+  # @key in the next line will be linked in the parent
+  type User @key(field: "id") {
+    id: ID!
   }
-`;
-
-const user: ObjectTypeDefinitionNode = example.document
-  .definitions[1] as any;
-const field = user.fields![0];
-
-
-expect([...example.read(another, field)]).toMatchInlineSnapshot(`
-  Array [
-    Object {
-      "canonicalName": "@other",
-      "data": Object {
-        "value": 32,
-      },
-      "directive": (inline graphql):8:24
-  7 |           type User @other(input: "hello") {
-  8 |             field: Int @another(value: 32)
-    |                        ^
-  9 |           },
-      "feature": Feature {
-        "directive": (inline graphql):4:13
-  3 |             @core(feature: "https://example.com/other/v1.0")
-  4 |             @core(feature: "https://two.example.com/other/v1.2", as: "another")
-    |             ^
-  5 |           { query: Query },
-        "name": "another",
-        "purpose": undefined,
-        "url": FeatureUrl {
-          "element": undefined,
-          "identity": "https://two.example.com/other",
-          "name": "other",
-          "version": Version {
-            "major": 1,
-            "minor": 2,
-          },
-        },
-      },
-      "node": (inline graphql):8:13
-  7 |           type User @other(input: "hello") {
-  8 |             field: Int @another(value: 32)
-    |             ^
-  9 |           },
-    },
-  ]
-`);
-
-// you can also give `read()` a feature url, optionally with a hash
-// in this case, read() has no way to deserialize the data, so it is not returned.
-expect([...example.read("https://example.com/other/v1.0", user)]).toMatchInlineSnapshot(`
-  Array [
-    Object {
-      "canonicalName": "@other",
-      "directive": (inline graphql):7:21
-  6 |
-  7 |           type User @other(input: "hello") {
-    |                     ^
-  8 |             field: Int @another,
-      "feature": Feature {
-        "directive": (inline graphql):3:13
-  2 |           schema @core(feature: "https://specs.apollo.dev/core/v0.1")
-  3 |             @core(feature: "https://example.com/other/v1.0")
-    |             ^
-  4 |             @core(feature: "https://two.example.com/other/v1.2", as: "another"),
-        "name": "other",
-        "purpose": undefined,
-        "url": FeatureUrl {
-          "element": undefined,
-          "identity": "https://example.com/other",
-          "name": "other",
-          "version": Version {
-            "major": 1,
-            "minor": 0,
-          },
-        },
-      },
-      "node": (inline graphql):7:11
-  6 |
-  7 |           type User @other(input: "hello") {
-    |           ^
-  8 |             field: Int @another,
-    },
-  ]
-`);
+`))
 ```
+
+## iterate over links from a document
+```typescript
+function linksFed2(doc: IScope<Document>) {
+  for (const link of doc.links()) {
+    if (link.location.graph.satisfies(LinkUrl.from("https://specs.apollo.dev/federation/v2.0"))) {
+      // child links federation 2.0
+      return true
+    }  
+  }
+  return false
+}
+```
+
+## match a particular element with a global url
+```typescript
+const match = doc.matcher(directive('requires', "https://specs.apollo.dev/federation/v2.0"))
+visit(doc.root, {
+  Directive(node, parent) {
+    if (match(node)) {
+      // matched @federation::requires
+    }
+  }
+})
+```
+
+
 
 ## getting the feature for a node
 

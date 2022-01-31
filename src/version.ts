@@ -1,10 +1,4 @@
-import err from './error'
-
-export const ErrVersionParse = (input: string) =>
-  err('VersionParse', {
-    message: `expected a version specifier like "v9.8", got "${input}"`,
-    input,
-  })
+import recall, { use } from "@protoplasm/recall"
 
 /**
  * Versions are a (major, minor) number pair.
@@ -15,7 +9,7 @@ export const ErrVersionParse = (input: string) =>
  * *cannot* satisfy a request for `Version(1, 9)`. To check for version compatibility,
  * use [the `satisfies` method](#satisfies).
  */
-export class Version {
+ export class Version {
   constructor(public readonly major: number, public readonly minor: number) {}
 
   /**
@@ -28,31 +22,32 @@ export class Version {
    * expect(Version.parse("v987.65432")).toEqual(new Version(987, 65432)) 
    * ```
    */
-  public static parse(input: string): Version {
+  public static parse(input?: string): Version | null {
+    if (!input) return null
     const match = input.match(this.VERSION_RE)
-    if (!match) throw ErrVersionParse(input)
-    return new this(+match[1], +match[2])
+    if (!match) return null
+    return this.canonical(+match[1], +match[2])
   }
 
-  /**
-   * Return true if and only if this Version satisfies the `required` version
-   *
-   * # Example
-   * ```
-   * expect(new Version(1, 0).satisfies(new Version(1, 0))).toBe(true)
-   * expect(new Version(1, 2).satisfies(new Version(1, 0))).toBe(true)
-   * expect(new Version(2, 0).satisfies(new Version(1, 9))).toBe(false)
-   * expect(new Version(0, 9).satisfies(new Version(0, 8))).toBe(false)
-   * ```
-   **/
-  public satisfies(required: Version): boolean {
-    const {major, minor} = this
-    const {major: rMajor, minor: rMinor} = required
-    return rMajor == major && (
-      major == 0
-        ? rMinor == minor
-        : rMinor <= minor
-    )
+  private static VERSION_TAG_RE = /\/v(\d+)\.(\d+)$/  
+  public static parseTag(path: string): [string, Version?] {
+    const match = path.match(this.VERSION_TAG_RE)
+    if (match) {
+      return [ path.slice(0, path.length - match[0].length), new Version(+match[1], +match[2]) ]
+    }
+    return [ path ]
+  }
+  
+  public static from(input: string | [number, number] | Version): Version | null {
+    if (input instanceof this) return input
+    if (typeof input === 'string') return this.parse(input)
+    if (Array.isArray(input)) return this.canonical(...input)
+    return null
+  }
+
+  @use(recall)
+  public static canonical(major: number, minor: number): Version {
+    return new this(major, minor)
   }
 
   /**
@@ -80,8 +75,33 @@ export class Version {
    * @param other the version to compare
    * @returns true if versions are strictly equal
    */
-  public equals(other: Version) {
+  public equals(other?: Version) {
+    if (!other) return false
     return this.major === other.major && this.minor === other.minor
+  }
+
+
+  /**
+   * Return true if and only if this Version satisfies the `required` version
+   *
+   * # Example
+   * ```
+   * expect(new Version(1, 0).satisfies(new Version(1, 0))).toBe(true)
+   * expect(new Version(1, 2).satisfies(new Version(1, 0))).toBe(true)
+   * expect(new Version(2, 0).satisfies(new Version(1, 9))).toBe(false)
+   * expect(new Version(0, 9).satisfies(new Version(0, 8))).toBe(false)
+   * ```
+   **/
+  satisfies(required?: Version): boolean {
+    // any version satisfies null
+    if (!required) return true
+    const {major, minor} = this
+    const {major: rMajor, minor: rMinor} = required
+    return rMajor == major && (
+      major == 0
+        ? rMinor == minor
+        : rMinor <= minor
+    )
   }
 
   private static VERSION_RE = /^v(\d+)\.(\d+)$/

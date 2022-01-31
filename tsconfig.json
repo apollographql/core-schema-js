@@ -23,7 +23,8 @@
     },
     "rootDir": "./src",
     "outDir": "./dist",
-    "noEmitOnError": false
+    "noEmitOnError": false,
+    "experimentalDecorators": true
   },
   "exclude": ["**/__tests__", "dist"]
 }
