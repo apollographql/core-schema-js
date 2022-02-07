@@ -30,6 +30,11 @@ export class LinkUrl {
     return this.canonical(url.href, name ?? undefined, version ?? undefined)
   }
 
+  @use(recall)
+  private static canonical(href: string, name?: string, version?: Version): LinkUrl {
+    return new this(href, name, version)
+  }
+
   public readonly type: 'schema' = 'schema'
 
   get graph() { return this }
@@ -40,11 +45,6 @@ export class LinkUrl {
 
   locateType(name: string): ElementLocation {
     return type(name, this)
-  }
-
-  @use(recall)
-  private static canonical(href: string, name?: string, version?: Version): LinkUrl {
-    return new this(href, name, version)
   }
 
   private constructor(

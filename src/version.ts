@@ -10,8 +10,6 @@ import recall, { use } from "@protoplasm/recall"
  * use [the `satisfies` method](#satisfies).
  */
  export class Version {
-  constructor(public readonly major: number, public readonly minor: number) {}
-
   /**
    * Parse a version specifier of the form "v(major).(minor)" or throw
    *
@@ -28,15 +26,6 @@ import recall, { use } from "@protoplasm/recall"
     if (!match) return null
     return this.canonical(+match[1], +match[2])
   }
-
-  private static VERSION_TAG_RE = /\/v(\d+)\.(\d+)$/  
-  public static parseTag(path: string): [string, Version?] {
-    const match = path.match(this.VERSION_TAG_RE)
-    if (match) {
-      return [ path.slice(0, path.length - match[0].length), new Version(+match[1], +match[2]) ]
-    }
-    return [ path ]
-  }
   
   public static from(input: string | [number, number] | Version): Version | null {
     if (input instanceof this) return input
@@ -49,6 +38,8 @@ import recall, { use } from "@protoplasm/recall"
   public static canonical(major: number, minor: number): Version {
     return new this(major, minor)
   }
+
+  private constructor(public readonly major: number, public readonly minor: number) {}
 
   /**
    * a string indicating this version's compatibility series. for release versions (>= 1.0), this

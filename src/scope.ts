@@ -6,7 +6,7 @@ import directives from './directives'
 import { directive, LinkUrl, Loc, type, ElementLocation } from './location'
 
 /**
- * A Scope maps local names to global graph locations.
+ * `Scope`s map local names to global graph locations.
  * 
  * Scopes are multimaps: a given name may be mapped to multiple locations.
  * This allows Scopes to represent both strictly valid core schemas, and
@@ -196,7 +196,7 @@ export class Scope<T> implements IScope<T> {
   }
   private _links: Links = Object.create(this.parent?._links ?? null)
 
-  //@ts-ignore unused
+  //@ts-ignore unused — available via IScopeMut
   private add(link: Link): this {
     const {name} = link
     const {_links: links} = this
@@ -208,7 +208,7 @@ export class Scope<T> implements IScope<T> {
     return this
   }
 
-  //@ts-ignore unused
+  //@ts-ignore unused — available via IScopeMut
   private setSelf(link: Link) {
     (this as any).self = link
   }
