@@ -1,10 +1,4 @@
-import {
-  ASTNode,
-  GraphQLError,
-  printLocation,
-  printSourceLocation,
-  Source,
-} from "graphql";
+import { ASTNode, GraphQLError, Source } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 
 export type Props = {
@@ -48,8 +42,9 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
   throw(): never {
     throw this;
   }
+
   toString(): string {
-    let output = `[${this.code}] ${this.printOriginalError(this)}`;
+    let output = `[${this.code}] ${super.toString()}`;
     const causes = (this as any).causes;
     if (causes && causes.length) {
       output += "\ncaused by:";
@@ -57,25 +52,6 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
         if (!cause) continue;
         output += "\n\n  - ";
         output += cause.toString().split("\n").join("\n    ");
-      }
-    }
-
-    return output;
-  }
-
-  // The previous implementation of `printError`, now `GraphQLError.toString()`
-  printOriginalError(err: GraphQLError) {
-    let output = err.message;
-
-    if (err.nodes) {
-      for (const node of err.nodes) {
-        if (node.loc) {
-          output += "\n\n" + printLocation(node.loc);
-        }
-      }
-    } else if (err.source && err.locations) {
-      for (const location of err.locations) {
-        output += "\n\n" + printSourceLocation(err.source, location);
       }
     }
 
