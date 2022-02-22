@@ -1,7 +1,9 @@
 /*** ast-specific ***/
 import { type ASTKindToNode, type ASTNode, Kind, type NameNode } from 'graphql'
 
-export function isAst<K extends ASTNode["kind"]>(obj: any, ...kinds: K[]): obj is ASTKindToNode[K] {
+export function isAst<K extends ASTNode["kind"] = ASTNode["kind"]>(obj: any, ...kinds: K[]): obj is ASTKindToNode[K] {
+  if (!kinds.length)
+    return typeof obj?.kind === 'string'
   return kinds.indexOf(obj?.kind) !== -1
 }
 

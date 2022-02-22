@@ -1,23 +1,25 @@
 import recall, { use } from '@protoplasm/recall'
-import { DefinitionNode, DirectiveNode, DocumentNode, ExecutableDefinitionNode, Kind, NamedTypeNode, SchemaDefinitionNode, SchemaExtensionNode } from 'graphql'
+import { ASTNode, DefinitionNode, DirectiveNode, DocumentNode, ExecutableDefinitionNode, Kind, NamedTypeNode, SchemaDefinitionNode, SchemaExtensionNode, visit } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import bootstrap, { id, Link } from './bootstrap'
+import bootstrap, { id, Link, Links, SelfLink } from './bootstrap'
 import directives from './directives'
-import { asDirective, directive, ElementRef, HgRef, named, SchemaRef, withGraph } from './hgref'
+import { Term, HgRef } from './hgref'
 import { isAst } from './is'
-import { IScope, IScopeMut, Scope } from './scope-map'
+import { IScopeMut, Scope } from './scope-map'
 
-export type Links = IScope<Link>
-
+export type LinksMut = IScopeMut<Link, Term>
 export type Locatable =
   | Exclude<DefinitionNode, ExecutableDefinitionNode | SchemaDefinitionNode | SchemaExtensionNode>
   | DirectiveNode
   | NamedTypeNode
 
+export type Located =
+  Locatable & { hgref: HgRef }
+
 const LOCATABLE_KINDS = new Set([
   ...Object.values(Kind)
-    .filter(k => k.endsWith('Definition') || k.endsWith('Extension'))
-    .filter(k => !k.startsWith('Schema'))
+    .filter(k => k.endsWith('Definition') || k.endsWith('Extension'))    
+    .filter(k => !k.startsWith('Schema') && !k.startsWith('Field'))
     .filter(k => k !== 'OperationDefinition' && k !== 'FragmentDefinition'),
   Kind.DIRECTIVE,
   Kind.NAMED_TYPE,
@@ -27,116 +29,88 @@ export function isLocatable(o: any): o is Locatable {
   return LOCATABLE_KINDS.has(o?.kind)
 }
 
-export type BareKind<K extends string> =
-  K extends `${infer Name}Definition`
-    ? Name
-    :
-  K extends `${infer Name}Extension`
-    ? Name
-    :
-    never
-
 export class Schema {
-  static fromDoc(document: DocumentNode, parent?: Schema) {
+  static from(document: DocumentNode, parent?: Schema) {
     return new this(document, parent)
   }
 
   public get links(): Links {
     return (this.parent?.links ?? Scope.EMPTY).child(
-      (scope: IScopeMut<Link>) => {
-        for (const dir of this.directives) {
-          const linker = linkerFor(scope, dir)
+      (scope: LinksMut) => {
+        for (const dir of directives(this.document)) {
+          const linker = linkerFor(scope, dir)          
           if (!linker) continue
           for (const link of linker(dir)) {
-            scope.set(link.name, link)
+            scope.set(link.term, link)
           }
         }
-        const self = selfIn(scope, this.directives)
-        if (self)
-          scope.set(undefined, self)
-        if (self?.name)
-          scope.set(self.name, self)        
+        const self = selfIn(scope, directives(this.document))
+        if (self) {
+          // an empty schema ref points to self
+          scope.set(Term.SELF, self)
+          scope.set(Term.directive(self.term.name), {
+            ...self,
+            location: HgRef.rootDirective(self.location.graph)
+          })
+        }
       })
   }
 
-  public get directives(): Iterable<DirectiveNode> {
-    return directives(this.document)
-  }
-
-  definitions(ref?: HgRef): Iterable<DefinitionNode> {
-    if (!ref) return this.document.definitions
-    if (this.url && !ref.graph) ref = withGraph(ref, this.url)
+  definitions(ref: HgRef): Iterable<Hg<Locatable>> {  
+    if (this.url && !ref.graph) ref = ref.withGraph(this.url)
     return this.defMap.get(ref) ?? []
   }
 
-  *lookupDefinitions(ref?: HgRef): Iterable<DefinitionNode> {
+  *lookupDefinitions(ref: HgRef): Iterable<Hg<Locatable>> {
     yield *this.definitions(ref)
     if (this.parent)
       yield *this.parent.lookupDefinitions(ref)
   }
 
+  @use(recall)
+  denormalize<T extends ASTNode>(node: T): Hg<T> {
+    const self = this
+    return visit(node, {
+      enter<T extends Hg<ASTNode>>(node: T): Hg<T> | undefined {
+        if (isLocatable(node)) {
+          return { ...node, hgref: self.locate(node) } as Hg<T>
+        }
+        return
+      }
+    }) as Hg<T>
+  }
+
   get url() { return this.self?.location.graph }
 
-  get self() { return this.links.own(undefined) }
+  get self() { return this.links.own(Term.schema()) }
 
-  locate(node: Locatable): ElementRef | undefined {
+  locate(node: Locatable): HgRef {
     const [ prefix, name ] = getPrefix(node.name.value)    
     const { links } = this
     
-    if (!prefix) {
-      // node name has no prefix, e.g. "federation"
-      const found = links.lookup(name)
-      if (found) {
-        // if we found the raw name and are looking for a directive,
-        // return the location as a directive location
-        if (isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)) {
-          // `asDirective` returns the root directive location
-          // of a schema hgref and returns directive locations
-          // unmodified          
-          const hgref = asDirective(found.location)
-          // if asDirective returned null, we found a named location
-          // which can't be bound to a directive
-          if (hgref) return hgref
-          // error: cound not bind
-          return
-        }
-        if (found.location.refKind === 'named')
-          return found.location
-        // error: could not bind
-        return
-      }
-    } else {
-      // node name has a prefix, e.g. "federation__requires"
-      const found = links.lookup(prefix)
-      if (found) {
-        // the prefix MUST reference a schema (schemas
-        // are currently the only indexable type)
-        if (found.location.refKind !== 'schema') {
-          // error: could not bind
-          return
-        }
-        return isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
-          ? directive(name, found.location.graph)
-          : named(name, found.location.graph)
-      }
+    if (prefix) {
+      const element = isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
+        ? Term.directive(name)
+        : Term.named(name)
+      const found = links.lookup(Term.schema(prefix))
+      if (found) return found.location.withElement(element)
     }
 
-    // if we arrive here, the name, prefixed or not, was not found
-    // in scope. we assume this is a local reference.
-    return isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
-      ? directive(node.name.value, this.self?.location.graph)
-      : named(node.name.value, this.self?.location.graph)
+    const element = isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
+      ? Term.directive(node.name.value)
+      : Term.named(node.name.value)
+    return links.lookup(element)?.location ?? HgRef.canon(element, this.url)
   }
 
-  private get defMap(): Readonly<Map<HgRef, readonly DefinitionNode[]>> {
-    const defs = new Map<HgRef, DefinitionNode[]>()
+  private get defMap(): Readonly<Map<HgRef, readonly Hg<Locatable>[]>> {
+    const defs = new Map<HgRef, Hg<Locatable>[]>()
     for (const def of this.document.definitions) {
       if (!isLocatable(def)) continue
-      const loc = this.locate(def)
-      if (!loc) continue
-      const existing = defs.get(loc)
-      if (existing) existing.push(def)
-      else defs.set(loc, [def])
+      const hgref = this.locate(def)
+      if (!hgref) continue
+      const existing = defs.get(hgref)
+      if (existing) existing.push(this.denormalize(def))
+      else defs.set(hgref, [this.denormalize(def)])
     }
     return defs
   }
@@ -149,18 +123,78 @@ export class Schema {
 
 export default Schema
 
+const elemFromNode = (node: Locatable) =>
+  isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
+        ? Term.directive(node.name.value)
+        : Term.named(node.name.value)
+
+type Hg<T> =
+  T extends (infer E)[]
+    ? Hg<E>[]
+    :
+  T extends Locatable
+    ? { hgref?: HgRef } & {
+      [K in keyof T]: K extends 'kind' | 'loc'
+        ? T[K]
+        :              
+      Hg<T[K]>
+    }
+    :
+  T extends object
+    ? {
+      [K in keyof T]: K extends 'kind' | 'loc'
+        ? T[K]
+        :
+      Hg<T[K]>
+    }
+    :
+  T
+
+type ChildOf<T> =
+  T extends (infer E)[]
+    ? E
+    :
+  T extends object
+    ? {
+      [k in keyof T]: T[k] extends (infer E)[]
+        ? E
+        : T[k]
+    }[keyof T]
+    :
+  T
+
+export function *deepRefs(root: ASTNode): Iterable<Located> {  
+  if (isLocatable(root) && hasRef(root)) yield root
+  for (const child of children(root)) {
+    if (isAst(child)) yield *deepRefs(child)
+  }
+}
+
+export function *children<T>(root: T): Iterable<ChildOf<T>> {
+  if (Array.isArray(root)) return yield *root
+  if (typeof root === 'object') {
+    for (const child of Object.values(root)) {
+      if (Array.isArray(child)) yield *child
+      else yield child
+    }
+  }
+}
+
+export const hasRef = (o?: any): o is { hgref: HgRef } =>
+  o?.hgref instanceof HgRef
+
 const linkerFor = recall(
   function linkerFor(links: Links, dir: DirectiveNode) {
     const self = bootstrap(dir)
     if (self) return self
-    const other = links.lookup(dir.name.value)
+    const other = links.lookup(Term.directive(dir.name.value))
     if (!other) return
     return bootstrap(other.via)
   }
 )
 
 const selfIn = recall(
-  function self(links: Links, directives: Iterable<DirectiveNode>): Maybe<Link<SchemaRef>> {
+  function self(links: Links, directives: Iterable<DirectiveNode>): Maybe<SelfLink> {
     for (const dir of directives) {
       const self = id(links, dir)
       if (self) return self

@@ -1,12 +1,13 @@
 import recall, { use } from '@protoplasm/recall'
-import { ASTNode, NameNode } from 'graphql'
 import { URL } from 'url'
 import Version from './version'
 
 export class LinkUrl {
-  static from(input: string | LinkUrl) {
+  static from(input?: string | LinkUrl | null | undefined): LinkUrl | undefined
+  static from(input: string | LinkUrl): LinkUrl
+  static from(input?: string | LinkUrl) {    
     if (typeof input === 'string') return this.parse(input)
-    return input
+    return input ?? undefined
   }
 
   static parse(input: string) {
@@ -27,24 +28,12 @@ export class LinkUrl {
     url.password = ''
     url.username = ''
     url.hash = ''
-    return this.canonical(url.href, name ?? undefined, version ?? undefined)
+    return this.canon(url.href, name ?? undefined, version ?? undefined)
   }
 
   @use(recall)
-  private static canonical(href: string, name?: string, version?: Version): LinkUrl {
+  private static canon(href: string, name?: string, version?: Version): LinkUrl {
     return new this(href, name, version)
-  }
-
-  public readonly type: 'schema' = 'schema'
-
-  get graph() { return this }
-
-  locateDirective(name?: string): Loc {
-    return directive(name ?? '', this)
-  }
-
-  locateType(name: string): ElementLocation {
-    return type(name, this)
   }
 
   private constructor(
@@ -54,33 +43,6 @@ export class LinkUrl {
 }
 
 export default LinkUrl
-
-export interface ReferenceNode {
-  kind: ASTNode["kind"]
-  name: NameNode
-}
-
-export interface ElementLocation {
-  readonly type: 'type' | 'directive'
-  readonly graph?: LinkUrl
-  readonly name: string
-}
-
-export type Loc = LinkUrl | ElementLocation
-
-const element = recall(
-  function element(type: 'type' | 'directive', name: string, graph?: LinkUrl): ElementLocation {
-    return { type, name, graph }
-  }
-)
-
-export const type = (name: string, graph?: LinkUrl | string) =>
-  element('type', name, graph ? LinkUrl.from(graph) : undefined)
-
-export const directive = (name: string, graph?: LinkUrl | string) =>
-  element('directive', name, graph ? LinkUrl.from(graph) : undefined)
-
-
 
 function *rsplit(haystack: string, sep: string) {
   let index = haystack.lastIndexOf(sep)

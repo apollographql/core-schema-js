@@ -1,45 +1,95 @@
-import recall from '@protoplasm/recall'
-import { Maybe } from 'graphql/jsutils/Maybe'
+import recall, { use } from '@protoplasm/recall'
 import LinkUrl from './location'
 
-export interface SchemaRef {
-  readonly refKind: 'schema'
-  readonly name: undefined
-  readonly graph?: LinkUrl
-}
+export type TermKind = 'name' | 'directive' | 'schema'
+export class Term<K extends TermKind = TermKind> {
+  static readonly SELF = Term.schema()
 
-export interface ElementRef {
-  readonly refKind: 'named' | 'directive'
-  readonly name: string
-  readonly graph?: LinkUrl
-}
-
-export type HgRef = SchemaRef | ElementRef
-
-const hgref = recall(
-  function hgref<K extends HgRef["refKind"]>(refKind: K, name: HgRef["name"], graph: HgRef["graph"]): HgRef & { refKind: K } {
-    return Object.freeze({ refKind, name, graph }) as HgRef & { refKind: K }
+  static named<N extends string>(name: N): NameTerm {
+    return this.canon('name', name) as NameTerm
   }
-)
 
-export const named = (name: string, graph?: LinkUrl | string): ElementRef =>
-  hgref('named', name, graph ? LinkUrl.from(graph) : undefined)
+  static directive(name?: string): Term<'directive'> {
+    return this.canon('directive', name ?? '')
+  }
 
-export const directive = (name: string, graph?: LinkUrl | string): ElementRef =>
-  hgref('directive', name, graph ? LinkUrl.from(graph) : undefined)
+  static schema(name?: string): Term<'schema'> {
+    return this.canon('schema', name ?? '')
+  }
 
-export const rootDirective = (graph?: LinkUrl | string): ElementRef =>
-  directive('', graph)
+  @use(recall)
+  static canon<K extends TermKind>(elKind: K, name: string): Term<K> {
+    return new Term(elKind, name)
+  }
 
-export const schema = (graph: LinkUrl | string): SchemaRef =>
-  hgref('schema', undefined, graph ? LinkUrl.from(graph) : undefined)
+  toString() {
+    if (this.name == null) return ''
+    if (this.termKind === 'name')
+      return '#' + this.name
+    if (this.termKind === 'directive')
+      return '#@' + this.name
+    return `#${this.termKind}-${this.name}`
+  }
 
-export function withGraph<T extends HgRef>(ref: T, graph?: LinkUrl): T {
-  return hgref(ref.refKind, ref.name, graph ? LinkUrl.from(graph) : undefined) as T
+  private constructor(
+    public readonly termKind: K,
+    public readonly name: string,
+  ) {}
 }
 
-export function asDirective<T extends HgRef>(ref: T): Maybe<ElementRef> {
-  if (ref.refKind === 'directive') return ref
-  if (ref.refKind === 'schema') return rootDirective(ref.graph)
-  return null
+export type SchemaRoot = Term<'schema'> & { name: never }
+export type NameTerm = Term<'name'> & { name: string }
+
+export class HgRef<T extends Term = Term> {
+  @use(recall)
+  static canon(element: Term, graph?: LinkUrl) {
+    return new this(element, graph)
+  }
+
+  static directive(name: string, graph?: LinkUrl | string) {
+    return this.canon(Term.directive(name), LinkUrl.from(graph))
+  }
+
+  static rootDirective(graph?: LinkUrl | string) {
+    return this.directive('', graph)
+  }
+
+  static named(name: string, graph?: LinkUrl | string) {
+    return this.canon(Term.named(name), LinkUrl.from(graph))
+  }
+
+  static graph(graph: LinkUrl | string): HgRef<SchemaRoot> {
+    return this.canon(Term.schema(), LinkUrl.from(graph)) as HgRef<SchemaRoot>
+  }
+
+  withGraph(graph?: LinkUrl | string) {
+    return HgRef.canon(this.element, LinkUrl.from(graph))
+  }
+
+  withElement<E extends Term>(element: E) {
+    return HgRef.canon(element, this.graph)
+  }
+
+  toString() {
+    return (this.graph?.href ?? '') + this.element.toString()
+  }
+
+  constructor(public readonly element: T, public readonly graph?: LinkUrl) {}
 }
+
+// export const named = (name: string, graph?: LinkUrl | string) =>
+//   HgRef.named(name, graph)
+
+// export const directive = (name: string, graph?: LinkUrl | string) =>
+//   HgRef.directive(name, graph)
+
+// export const rootDirective = (graph?: LinkUrl | string) =>
+//   HgRef.directive('', graph)
+
+
+
+// export function asDirective<T extends HgRef>(ref: T): Maybe<ElementRef> {
+//   if (ref.refKind === 'directive') return ref
+//   if (ref.refKind === 'schema') return rootDirective(ref.graph)
+//   return null
+// }
