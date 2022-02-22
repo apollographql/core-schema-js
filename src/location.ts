@@ -81,6 +81,7 @@ export const directive = (name: string, graph?: LinkUrl | string) =>
   element('directive', name, graph ? LinkUrl.from(graph) : undefined)
 
 
+
 function *rsplit(haystack: string, sep: string) {
   let index = haystack.lastIndexOf(sep)
   const len = haystack.length

@@ -214,6 +214,85 @@ describe("scopes", () => {
       location: LinkUrl.from("https://example.com/myself"),
     });
   });
+
+  const base = Scope.create(
+    fromDoc(
+      parse(`
+    extend schema
+      @link(url: "https://specs.apollo.dev/link/v0.3")
+      @link(url: "https://specs.apollo.dev/id/v1.0")
+  `)
+    )
+  );
+
+  it(".defs gets own definitions", () => {
+    const doc = base.child(
+      fromDoc(
+        parse(`
+      extend schema
+        @id(url: "https://example.com/myself")
+        @link(url: "https://api/auth", import: "User")
+
+      type User {
+        id: ID!
+      }
+
+      type Mine {
+        name: String
+      }
+    `)
+      )
+    );
+    expect(doc.defsByLocation).toMatchInlineSnapshot(`
+      Map {
+        Object {
+          "graph": LinkUrl {
+            "href": "https://api/auth",
+            "name": "auth",
+            "type": "schema",
+            "version": undefined,
+          },
+          "name": "User",
+          "type": "type",
+        } => Array [
+          GraphQL request:6:7
+      5 |
+      6 |       type User {
+        |       ^
+      7 |         id: ID!,
+        ],
+        Object {
+          "graph": LinkUrl {
+            "href": "https://example.com/myself",
+            "name": "myself",
+            "type": "schema",
+            "version": undefined,
+          },
+          "name": "Mine",
+          "type": "type",
+        } => Array [
+          GraphQL request:10:7
+       9 |
+      10 |       type Mine {
+         |       ^
+      11 |         name: String,
+        ],
+      }
+    `);
+
+    expect([...doc.ownNodes(type("Mine"))]).toMatchInlineSnapshot(`Array []`);
+
+    expect([...doc.ownNodes(type("Mine", "https://example.com/myself"))])
+      .toMatchInlineSnapshot(`
+      Array [
+        GraphQL request:10:7
+       9 |
+      10 |       type Mine {
+         |       ^
+      11 |         name: String,
+      ]
+    `);
+  });
 });
 
 function reference(name: string): ReferenceNode {

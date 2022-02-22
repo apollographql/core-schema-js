@@ -1,6 +1,9 @@
 /*** ast-specific ***/
-import type { ASTKindToNode, ASTNode } from 'graphql'
+import { type ASTKindToNode, type ASTNode, Kind, type NameNode } from 'graphql'
 
 export function isAst<K extends ASTNode["kind"]>(obj: any, ...kinds: K[]): obj is ASTKindToNode[K] {
   return kinds.indexOf(obj?.kind) !== -1
 }
+
+export const hasName = <T>(o: T): o is T & { name: NameNode } =>
+  o && isAst((o as any).name, Kind.NAME)

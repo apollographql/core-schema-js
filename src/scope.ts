@@ -1,8 +1,9 @@
-import recall, { report, use } from '@protoplasm/recall'
-import { ASTNode, DirectiveNode, DocumentNode, Kind, NameNode } from 'graphql'
+import recall, { replay, report, use } from '@protoplasm/recall'
+import { ASTNode, DefinitionNode, DirectiveNode, DocumentNode, Kind, NameNode, visit } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import defaultBootstrap, { id, Linker } from './bootstrap'
 import directives from './directives'
+import { isAst } from './is'
 import { directive, LinkUrl, Loc, type, ElementLocation } from './location'
 
 /**
@@ -12,12 +13,11 @@ import { directive, LinkUrl, Loc, type, ElementLocation } from './location'
  * This allows Scopes to represent both strictly valid core schemas, and
  * invalid core schemas.
  */
-export interface IScope<T = any> {
+export interface IScope {
   /**
-   * The root node to which this scope is bound. This is typically
-   * a document root.
+   * Definitions in this Scope.
    */
-  readonly root: T
+  readonly root?: DocumentNode
 
   /**
    * The self link. This is a Link which allows the scope to refer
@@ -54,7 +54,7 @@ export interface IScope<T = any> {
    * 
    * @param createFn 
    */
-  child<F extends CreateFn>(createFn: F): IScope<ReturnType<F>>
+  child<F extends CreateFn>(createFn: F): Scope
 
   /**
    * Return a bound matcher. Matchers are functions which take ReferenceNodes
@@ -63,6 +63,8 @@ export interface IScope<T = any> {
    * @param element the ElementLocation to match
    */
   matcher(element: ElementLocation): (node: ReferenceNode) => boolean
+
+  ownNodes(loc: Loc): Nodes
 
   /**
    * Return a Linker for the given DirectiveNode.
@@ -77,7 +79,7 @@ export interface IScope<T = any> {
 }
 
 export type CreateFn = (mut: IScopeMut) => any
-export interface IScopeMut extends IScope<any> {
+export interface IScopeMut extends IScope {
   add(link: Link): this
   setSelf(link: Link): this
 }
@@ -96,6 +98,10 @@ export interface ReferenceNode {
   name: NameNode
 }
 
+const hasName = <T>(o: T): o is T & ReferenceNode =>
+  o && isAst((o as any).name, Kind.NAME)
+
+
 export const fromDoc = recall(
   (doc: DocumentNode) => (scope: IScopeMut) => {
     for (const dir of directives(doc)) {
@@ -107,22 +113,24 @@ export const fromDoc = recall(
     }
     for (const dir of directives(doc)) {
       const self = id(scope, dir)
-      if (self) scope.setSelf(self)
+      if (self) {
+        scope.add(self)
+        scope.setSelf(self)
+      }
     }
     return doc
   }
 )
 
-export class Scope<T> implements IScope<T> {
+export class Scope implements IScope {
   public static readonly Empty = new this()
 
-  public static create<F extends CreateFn>(fn: F): IScope<ReturnType<F>> {
+  public static create<F extends CreateFn>(fn: F): IScope {
     return Scope.Empty.child(fn)
   }
 
   // the root is set with the createfn's return value
-  //@ts-ignore
-  public readonly root: T
+  public readonly root?: DocumentNode
   public readonly self?: Link<LinkUrl>
 
   linkerFor(dir: DirectiveNode, bootstrap = defaultBootstrap) {
@@ -133,7 +141,7 @@ export class Scope<T> implements IScope<T> {
     return bootstrap(others[0].via)
   }
 
-  private constructor(private readonly parent?: Scope<any>) {}
+  private constructor(private readonly parent?: Scope) {}
 
   location(node: ReferenceNode): Maybe<Loc> {
     const i = this.locations(node)[Symbol.iterator]()
@@ -168,14 +176,25 @@ export class Scope<T> implements IScope<T> {
       : type(node.name.value, this.self?.location)
   }
 
-  child<F extends CreateFn>(createFn: F): IScope<ReturnType<F>> {
+  ownNodes(loc: Loc): Nodes {
+    const self = this.self?.location
+    console.log('lookup', self, loc)
+    if (self && loc.type !== 'schema' && !loc.graph) {
+      return this.ownNodes({ ...loc, graph: self })
+    }
+    const found = this.defsByLocation.get(loc)
+    if (!found) return Nodes.Empty
+    return Nodes.from(this.globalizeEach(found))
+  }
+
+  child<F extends CreateFn>(createFn: F): Scope {
     const child = new Scope(this)    
-    // we're writing child.root, which is declared readonly
+    // we're writing child.definitions, which is declared readonly
     // we just do it this once though, promise ;)
     //@ts-ignore
     child.root = createFn(child)
     Object.freeze(child._links)
-    return child as IScope<ReturnType<F>>
+    return child
   }
 
   @use(recall)
@@ -196,6 +215,44 @@ export class Scope<T> implements IScope<T> {
   }
   private _links: Links = Object.create(this.parent?._links ?? null)
 
+  @use(recall)
+  get defsByLocation(): Map<Loc, DefinitionNode[]> {
+    if (!this.root?.definitions) return new Map
+    const defs = new Map<Loc, DefinitionNode[]>()
+    for (const def of this.root.definitions) if (hasName(def))
+      for (const loc of this.locations(def)) {
+        const existing = defs.get(loc)
+        if (existing) existing.push(def)
+        else defs.set(loc, [def])
+      }
+    return defs
+  }
+
+  @use(replay)
+  private *globalizeEach<T extends ASTNode>(defs: Iterable<T>): Iterable<De<T>> {
+    for (const def of defs) yield this.globalize(def)
+  }
+
+  @use(recall)
+  globalize<T extends ASTNode>(node: T): De<T> {
+    return visit(node, {
+      enter: (node: ASTNode) => this.globalizeNode(node)
+    }) as De<T>
+  }
+
+  @use(recall)
+  private globalizeNode<T extends ASTNode>(node: T): T & Global {
+    const href =
+      (node === this.root)
+        ? this.self?.location
+        :
+      hasName(node)
+        ? this.location(node)
+        : undefined
+
+    return { ...node, href }
+  }
+
   //@ts-ignore unused — available via IScopeMut
   private add(link: Link): this {
     const {name} = link
@@ -211,10 +268,51 @@ export class Scope<T> implements IScope<T> {
   //@ts-ignore unused — available via IScopeMut
   private setSelf(link: Link) {
     (this as any).self = link
+    return this
   }
 }
 
 export default Scope
+
+interface Global {
+  href: Maybe<Loc>
+}
+
+// type De<T> =
+//   T extends (infer E)[]
+//     ? De<E>[]
+//     :
+//   T extends Locatable
+//     ? Global & {
+//       [K in keyof T]:
+//         K extends 'kind'
+//           ? T[K]
+//           : De<T[K]>
+//     }
+//     :
+//   never
+
+interface INodes<T> extends Iterable<T> {
+
+}
+
+class Nodes<T = any> implements INodes<T> {
+  static readonly Empty = this.from<never>([])
+
+  @use(recall)
+  static from<T>(items: Iterable<T>): Nodes<T> {
+    return new this(items)
+  }
+
+  private constructor(private readonly items: Iterable<T>) {}
+
+  @use(recall)
+  get array(): readonly T[] {
+    return Object.freeze([...this])
+  }
+
+  [Symbol.iterator]() { return this.items[Symbol.iterator]() }
+}
 
 type Links = Record<string, Link[]>
 

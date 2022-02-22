@@ -8,4 +8,17 @@ import { printLocation } from 'graphql'
  * subtree attached to them.
  */
 export const test = (val: any) => !!val?.loc
-export const print = (val: ASTNode) => printLocation(val.loc!)
+export const print = (val: ASTNode) => {
+  if (!val.loc) return val
+  const {loc} = val
+  const {line} = loc.startToken
+  let start = loc.startToken
+  let end = loc.startToken
+  while (start.prev && start.prev.line === line)
+    start = start.prev
+  while (end.next && end.next.line === line)
+    end = end.next
+  const text = val.loc.source.body.substring(start.start, end.end)
+  return `[${val.loc.source.name}:${line}:${loc.startToken.column}] ${text}`
+}
+
