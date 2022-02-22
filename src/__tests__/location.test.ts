@@ -1,4 +1,5 @@
-import {directive, LinkUrl, type} from '../location'
+import {LinkUrl} from '../location'
+import {HgRef, Term} from '../hgref'
 
 describe('LinkUrl.parse', () => {
   it('parses urls with names and versions', () => {
@@ -44,13 +45,14 @@ describe('LinkUrl.parse', () => {
   })
 })
 
-describe('element, type and directive', () => {
-  it('is referentially stable', () => {
-    expect(type('User')).toBe(type('User'))
-    expect(directive('deprecated')).toBe(directive('deprecated'))
-    expect(type('User', 'https://example.com/schema'))
-      .toBe(type('User', 'https://example.com/schema'))
-    expect(directive('requires', 'https://example.com/federation/v2.0'))
-      .toBe(directive('requires', 'https://example.com/federation/v2.0'))
+describe('hgrefs', () => {
+  it('are canonicalized', () => {
+    expect(HgRef.named('User')).toBe(HgRef.named('User'))
+    expect(HgRef.directive('deprecated')).toBe(HgRef.directive('deprecated'))
+    expect(HgRef.named('User', 'https://example.com/schema'))
+      .toBe(HgRef.named('User', 'https://example.com/schema'))
+    expect(HgRef.directive('requires', 'https://example.com/federation/v2.0'))
+      .toBe(HgRef.directive('requires', 'https://example.com/federation/v2.0'))
+    expect(Term.schema()).toBe(Term.schema())
   })
 })

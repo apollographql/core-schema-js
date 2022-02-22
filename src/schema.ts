@@ -1,13 +1,12 @@
 import recall, { use } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, DocumentNode, ExecutableDefinitionNode, Kind, NamedTypeNode, SchemaDefinitionNode, SchemaExtensionNode, visit } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import bootstrap, { id, Link, Links, SelfLink } from './bootstrap'
+import bootstrap, { id, Scope, ScopeMut, SelfLink } from './bootstrap'
 import directives from './directives'
 import { Term, HgRef } from './hgref'
 import { isAst } from './is'
-import { IScopeMut, Scope } from './scope-map'
+import { ScopeMap } from './scope-map'
 
-export type LinksMut = IScopeMut<Link, Term>
 export type Locatable =
   | Exclude<DefinitionNode, ExecutableDefinitionNode | SchemaDefinitionNode | SchemaExtensionNode>
   | DirectiveNode
@@ -34,9 +33,9 @@ export class Schema {
     return new this(document, parent)
   }
 
-  public get links(): Links {
-    return (this.parent?.links ?? Scope.EMPTY).child(
-      (scope: LinksMut) => {
+  public get scope(): Scope {
+    return (this.parent?.scope ?? ScopeMap.EMPTY).child(
+      (scope: ScopeMut) => {
         for (const dir of directives(this.document)) {
           const linker = linkerFor(scope, dir)          
           if (!linker) continue
@@ -47,7 +46,7 @@ export class Schema {
         const self = selfIn(scope, directives(this.document))
         if (self) {
           // an empty schema ref points to self
-          scope.set(Term.SELF, self)
+          scope.set(Term.schema(), self)
           scope.set(Term.directive(self.term.name), {
             ...self,
             location: HgRef.rootDirective(self.location.graph)
@@ -57,7 +56,7 @@ export class Schema {
   }
 
   definitions(ref: HgRef): Iterable<Hg<Locatable>> {  
-    if (this.url && !ref.graph) ref = ref.withGraph(this.url)
+    if (this.url && !ref.graph) ref = ref.setGraph(this.url)
     return this.defMap.get(ref) ?? []
   }
 
@@ -82,18 +81,18 @@ export class Schema {
 
   get url() { return this.self?.location.graph }
 
-  get self() { return this.links.own(Term.schema()) }
+  get self() { return this.scope.own(Term.schema()) }
 
   locate(node: Locatable): HgRef {
     const [ prefix, name ] = getPrefix(node.name.value)    
-    const { links } = this
+    const { scope: links } = this
     
     if (prefix) {
       const element = isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
         ? Term.directive(name)
         : Term.named(name)
       const found = links.lookup(Term.schema(prefix))
-      if (found) return found.location.withElement(element)
+      if (found) return found.location.setTerm(element)
     }
 
     const element = isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
@@ -123,11 +122,6 @@ export class Schema {
 
 export default Schema
 
-const elemFromNode = (node: Locatable) =>
-  isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
-        ? Term.directive(node.name.value)
-        : Term.named(node.name.value)
-
 type Hg<T> =
   T extends (infer E)[]
     ? Hg<E>[]
@@ -147,7 +141,7 @@ type Hg<T> =
         :
       Hg<T[K]>
     }
-    :
+    :    
   T
 
 type ChildOf<T> =
@@ -184,7 +178,7 @@ export const hasRef = (o?: any): o is { hgref: HgRef } =>
   o?.hgref instanceof HgRef
 
 const linkerFor = recall(
-  function linkerFor(links: Links, dir: DirectiveNode) {
+  function linkerFor(links: Scope, dir: DirectiveNode) {
     const self = bootstrap(dir)
     if (self) return self
     const other = links.lookup(Term.directive(dir.name.value))
@@ -194,7 +188,7 @@ const linkerFor = recall(
 )
 
 const selfIn = recall(
-  function self(links: Links, directives: Iterable<DirectiveNode>): Maybe<SelfLink> {
+  function self(links: Scope, directives: Iterable<DirectiveNode>): Maybe<SelfLink> {
     for (const dir of directives) {
       const self = id(links, dir)
       if (self) return self

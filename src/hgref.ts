@@ -3,8 +3,6 @@ import LinkUrl from './location'
 
 export type TermKind = 'name' | 'directive' | 'schema'
 export class Term<K extends TermKind = TermKind> {
-  static readonly SELF = Term.schema()
-
   static named<N extends string>(name: N): NameTerm {
     return this.canon('name', name) as NameTerm
   }
@@ -37,12 +35,12 @@ export class Term<K extends TermKind = TermKind> {
   ) {}
 }
 
-export type SchemaRoot = Term<'schema'> & { name: never }
+export type SchemaRoot = Term<'schema'> & { name: '' }
 export type NameTerm = Term<'name'> & { name: string }
 
 export class HgRef<T extends Term = Term> {
   @use(recall)
-  static canon(element: Term, graph?: LinkUrl) {
+  static canon<T extends Term>(element: T, graph?: LinkUrl): HgRef<T> {
     return new this(element, graph)
   }
 
@@ -62,11 +60,11 @@ export class HgRef<T extends Term = Term> {
     return this.canon(Term.schema(), LinkUrl.from(graph)) as HgRef<SchemaRoot>
   }
 
-  withGraph(graph?: LinkUrl | string) {
+  setGraph(graph?: LinkUrl | string) {
     return HgRef.canon(this.element, LinkUrl.from(graph))
   }
 
-  withElement<E extends Term>(element: E) {
+  setTerm<T extends Term>(element: T): HgRef<T> {
     return HgRef.canon(element, this.graph)
   }
 

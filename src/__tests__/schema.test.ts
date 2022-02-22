@@ -35,112 +35,19 @@ describe("Schema", () => {
         )
       )
     );
-    // expect(schema.url).toBe(LinkUrl.from("https://my.org/mySchema"));
-    expect(schema.links).toMatchInlineSnapshot(`
-      Scope {
-        "entries": Map {
-          "link" => Object {
-            "location": Object {
-              "graph": LinkUrl {
-                "href": "https://specs.apollo.dev/link/v0.3",
-                "name": "link",
-                "type": "schema",
-                "version": Version {
-                  "major": 0,
-                  "minor": 3,
-                },
-              },
-              "name": undefined,
-              "refKind": "schema",
-            },
-            "name": "link",
-            "via": [example.graphql:3:7] @link(url: "https://specs.apollo.dev/link/v0.3"),
-          },
-          "id" => Object {
-            "location": Object {
-              "graph": LinkUrl {
-                "href": "https://specs.apollo.dev/id/v1.0",
-                "name": "id",
-                "type": "schema",
-                "version": Version {
-                  "major": 1,
-                  "minor": 0,
-                },
-              },
-              "name": undefined,
-              "refKind": "schema",
-            },
-            "name": "id",
-            "via": [example.graphql:4:7] @link(url: "https://specs.apollo.dev/id/v1.0"),
-          },
-          "foo" => Object {
-            "location": Object {
-              "graph": LinkUrl {
-                "href": "https://example.com/foo",
-                "name": "foo",
-                "type": "schema",
-                "version": undefined,
-              },
-              "name": undefined,
-              "refKind": "schema",
-            },
-            "name": "foo",
-            "via": [example.graphql:5:7] @link(url: "https://example.com/foo"),
-          },
-          "spec" => Object {
-            "location": Object {
-              "graph": LinkUrl {
-                "href": "https://specs.company.org/someSpec/v1.2",
-                "name": "someSpec",
-                "type": "schema",
-                "version": Version {
-                  "major": 1,
-                  "minor": 2,
-                },
-              },
-              "name": undefined,
-              "refKind": "schema",
-            },
-            "name": "spec",
-            "via": [example.graphql:6:7] @link(url: "https://specs.company.org/someSpec/v1.2", as: spec),
-          },
-          undefined => Object {
-            "location": Object {
-              "graph": LinkUrl {
-                "href": "https://my.org/mySchema",
-                "name": "mySchema",
-                "type": "schema",
-                "version": undefined,
-              },
-              "name": undefined,
-              "refKind": "schema",
-            },
-            "name": "mySchema",
-            "self": true,
-            "via": [example.graphql:2:7] @id(url: "https://my.org/mySchema"),
-          },
-          "mySchema" => Object {
-            "location": Object {
-              "graph": LinkUrl {
-                "href": "https://my.org/mySchema",
-                "name": "mySchema",
-                "type": "schema",
-                "version": undefined,
-              },
-              "name": undefined,
-              "refKind": "schema",
-            },
-            "name": "mySchema",
-            "self": true,
-            "via": [example.graphql:2:7] @id(url: "https://my.org/mySchema"),
-          },
-        },
-        "parent": Scope {
-          "entries": Map {},
-          "parent": undefined,
-        },
-      }
-    `);
+    expect(schema.url).toBe(LinkUrl.from("https://my.org/mySchema"));
+    expect(schema.scope.own(Term.schema('link'))?.location).toBe(
+      HgRef.graph("https://specs.apollo.dev/link/v0.3")
+    )
+    expect(schema.scope.own(Term.schema('spec'))?.location).toBe(
+      HgRef.graph("https://specs.company.org/someSpec/v1.2")
+    )    
+    expect(schema.scope.own(Term.directive('foo'))?.location).toBe(
+      HgRef.rootDirective("https://example.com/foo")
+    )
+    expect(schema.locate(ref('@spec__dir'))).toBe(
+      HgRef.directive('dir', "https://specs.company.org/someSpec/v1.2")
+    )
   });
 
   it("locates nodes", () => {
@@ -177,7 +84,7 @@ describe("Schema", () => {
     );
   });
 
-  it.only("understands @id", () => {
+  it("understands @id", () => {
     const schema = Schema.from(
       parse(`
       extend schema
@@ -202,7 +109,7 @@ describe("Schema", () => {
     );
 
     // a self-link is added when the url has a name
-    expect(schema.links.own(Term.schema())?.location).toBe(
+    expect(schema.scope.own(Term.schema())?.location).toBe(
       HgRef.graph("https://specs/me")
     );
 
@@ -231,7 +138,7 @@ describe("Schema", () => {
     const user = schema.locate(ref("User"));
     expect(schema.definitions(user)).toMatchInlineSnapshot(`
       Array [
-        [GraphQL request:7:9] type User @key(fields: "id") {,
+        <https://specs/me#User>[GraphQL request:7:9] type User @key(fields: "id") {,
       ]
     `);
 
@@ -242,7 +149,7 @@ describe("Schema", () => {
     );
     const [linkDef] = schema.lookupDefinitions(schema.locate(ref("@link")));
     expect(linkDef).toMatchInlineSnapshot(
-      `[builtins.graphql:6:3] directive @link(url: link__Url!, as: link__Schema, import: link__Import)`
+      `<https://specs.apollo.dev/link/v0.3#@>[builtins.graphql:6:3] directive @link(url: link__Url!, as: link__Schema, import: link__Import)`
     );
     expect(linkDef.hgref).toBe(
       HgRef.rootDirective("https://specs.apollo.dev/link/v0.3")

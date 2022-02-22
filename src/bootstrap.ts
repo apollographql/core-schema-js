@@ -3,7 +3,7 @@ import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, 
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
-import type { IScope } from './scope-map'
+import type { IScopeMap, IScopeMapMut } from './scope-map'
 import {LinkUrl} from './location'
 import { HgRef, Term, SchemaRoot } from './hgref'
 import { isAst } from './is'
@@ -61,7 +61,8 @@ export interface Link<T extends Term = Term, L extends HgRef<T> = HgRef<T>> {
   self?: true
 }
 
-export type Links = IScope<Link, Term>
+export type Scope = IScopeMap<Term, Link>
+export type ScopeMut = IScopeMapMut<Term, Link>
 export type Linker = (directive: DirectiveNode) => Iterable<Link>
 
 export default recall(
@@ -92,7 +93,7 @@ const ID_SCHEMA = HgRef.graph('https://specs.apollo.dev/id/v1.0')
 
 export type SelfLink = Link<Term<'schema'>, HgRef<SchemaRoot>>
 export const id = recall(
-  function id(scope: Links, dir: DirectiveNode): Maybe<SelfLink> {
+  function id(scope: Scope, dir: DirectiveNode): Maybe<SelfLink> {
     const link = scope.lookup(Term.directive(dir.name.value))
     if (!link) return
     const {location} = link
