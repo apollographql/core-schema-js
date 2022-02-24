@@ -1,7 +1,6 @@
 import recall, { use } from '@protoplasm/recall'
 import { URL } from 'url'
 import Version from './version'
-
 export class LinkUrl {
   static from(input?: string | LinkUrl | null | undefined): LinkUrl | undefined
   static from(input: string | LinkUrl): LinkUrl

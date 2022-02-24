@@ -1,5 +1,5 @@
 import {LinkUrl} from '../location'
-import {HgRef, Term} from '../hgref'
+import {HgRef} from '../hgref'
 
 describe('LinkUrl.parse', () => {
   it('parses urls with names and versions', () => {
@@ -53,6 +53,5 @@ describe('hgrefs', () => {
       .toBe(HgRef.named('User', 'https://example.com/schema'))
     expect(HgRef.directive('requires', 'https://example.com/federation/v2.0'))
       .toBe(HgRef.directive('requires', 'https://example.com/federation/v2.0'))
-    expect(Term.schema()).toBe(Term.schema())
   })
 })

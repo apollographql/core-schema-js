@@ -1,12 +1,11 @@
 import recall, { replay } from '@protoplasm/recall'
-import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind } from 'graphql'
+import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
 import type { IScopeMap, IScopeMapMut } from './scope-map'
 import {LinkUrl} from './location'
-import { HgRef, Term, SchemaRoot } from './hgref'
-import { isAst } from './is'
+import { HgRef, scopeNameFor } from './hgref'
 
 const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/core/v0.1', 'feature'],
@@ -54,15 +53,15 @@ const $bootstrap = new GraphQLDirective({
   isRepeatable: true,
 })
 
-export interface Link<T extends Term = Term, L extends HgRef<T> = HgRef<T>> {
-  term: T
-  location: L
+export interface Link {
+  name: string
+  hgref: HgRef
   via: DirectiveNode
   self?: true
 }
 
-export type Scope = IScopeMap<Term, Link>
-export type ScopeMut = IScopeMapMut<Term, Link>
+export type Scope = IScopeMap<string, Link>
+export type ScopeMut = IScopeMapMut<string, Link>
 export type Linker = (directive: DirectiveNode) => Iterable<Link>
 
 export default recall(
@@ -89,21 +88,20 @@ const $id = new GraphQLDirective({
 })
 
 const ID_DIRECTIVE = HgRef.rootDirective('https://specs.apollo.dev/id/v1.0')
-const ID_SCHEMA = HgRef.graph('https://specs.apollo.dev/id/v1.0')
+const ID_SCHEMA = HgRef.schema('https://specs.apollo.dev/id/v1.0')
 
-export type SelfLink = Link<Term<'schema'>, HgRef<SchemaRoot>>
 export const id = recall(
-  function id(scope: Scope, dir: DirectiveNode): Maybe<SelfLink> {
-    const link = scope.lookup(Term.directive(dir.name.value))
+  function id(scope: Scope, dir: DirectiveNode): Maybe<Link> {
+    const link = scope.lookup('@' + dir.name.value)
     if (!link) return
-    const {location} = link
+    const {hgref: location} = link
     if (location === ID_DIRECTIVE || location === ID_SCHEMA) {
       const args = getArgumentValues($id, dir)
       const url = args.url as LinkUrl
       const name: string = (args.as ?? url.name) as string
       return {
-        term: Term.schema(name),
-        location: HgRef.graph(url),
+        name,
+        hgref: HgRef.schema(url),
         via: dir,
         self: true
       }
@@ -131,27 +129,20 @@ function linker(strap: DirectiveNode, urlParam: string) {
       const name: string = (args.as ?? url.name) as string
       if (name !== '') {
         yield {
-          term: Term.schema(name),
-          location: HgRef.graph(url),
+          name,
+          hgref: HgRef.schema(url),
           via: directive
         }
         yield {
-          term: Term.directive(name),
-          location: HgRef.directive('', url),
+          name: '@' + name,
+          hgref: HgRef.rootDirective(url),
           via: directive
         }
       }
       for (const i of args.import as ImportNode[] ?? []) {
-        const name = i.alias?.name ?? i.element.name        
-        if (isAst(i.element, Kind.DIRECTIVE)) yield {
-          term: Term.directive(name.value),
-          location: HgRef.directive(i.element.name.value, url),
-          via: directive
-        }; else yield {
-          term: Term.named(name.value),
-          location: HgRef.named(i.element.name.value, url),
-          via: directive
-        }
+        const alias = scopeNameFor(i.alias ?? i.element)
+        const name = scopeNameFor(i.element)
+        yield { name: alias, hgref: HgRef.canon(name, url), via: directive }        
       }
     }
   )

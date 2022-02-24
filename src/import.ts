@@ -1,8 +1,8 @@
-import { Location, Source, TokenKind } from 'graphql'
+import { DirectiveNode, Location, NamedTypeNode, Source, TokenKind } from 'graphql'
 import { Parser } from 'graphql/language/parser'
-import type { ReferenceNode } from './scope'
 
-export interface ImportNode<T extends ReferenceNode = ReferenceNode> {
+export type ImportTermNode = DirectiveNode | NamedTypeNode
+export interface ImportNode<T extends ImportTermNode = ImportTermNode> {
   type: 'Import'
   element: T
   alias?: T

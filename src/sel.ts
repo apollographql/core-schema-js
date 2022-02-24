@@ -24,6 +24,8 @@ abstract class Path<T = any, R = any> {
   child<K extends keyof T>(key: K): Path<T[K], R> {
     return Child.of(this, key)
   }
+
+  
 }
 
 class Point<T> extends Path<T, T> {

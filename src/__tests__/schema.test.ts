@@ -1,5 +1,6 @@
-import { Kind, parse, Source } from "graphql";
-import { HgRef, Term } from "../hgref";
+import recall from "@protoplasm/recall";
+import { Kind, parse, Source, print } from "graphql";
+import { HgRef } from "../hgref";
 import LinkUrl from "../location";
 import Schema, { deepRefs, Locatable } from "../schema";
 
@@ -13,6 +14,7 @@ const base = Schema.from(
     
   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
     repeatable on SCHEMA
+  directive @id(url: link__Url!, as: link__Schema) on SCHEMA
 `,
       "builtins.graphql"
     )
@@ -36,18 +38,18 @@ describe("Schema", () => {
       )
     );
     expect(schema.url).toBe(LinkUrl.from("https://my.org/mySchema"));
-    expect(schema.scope.own(Term.schema('link'))?.location).toBe(
-      HgRef.graph("https://specs.apollo.dev/link/v0.3")
-    )
-    expect(schema.scope.own(Term.schema('spec'))?.location).toBe(
-      HgRef.graph("https://specs.company.org/someSpec/v1.2")
-    )    
-    expect(schema.scope.own(Term.directive('foo'))?.location).toBe(
+    expect(schema.scope.own('link')?.hgref).toBe(
+      HgRef.schema("https://specs.apollo.dev/link/v0.3")
+    );
+    expect(schema.scope.own('spec')?.hgref).toBe(
+      HgRef.schema("https://specs.company.org/someSpec/v1.2")
+    );
+    expect(schema.scope.own('@foo')?.hgref).toBe(
       HgRef.rootDirective("https://example.com/foo")
-    )
-    expect(schema.locate(ref('@spec__dir'))).toBe(
-      HgRef.directive('dir', "https://specs.company.org/someSpec/v1.2")
-    )
+    );
+    expect(schema.locate(ref("@spec__dir"))).toBe(
+      HgRef.directive("dir", "https://specs.company.org/someSpec/v1.2")
+    );
   });
 
   it("locates nodes", () => {
@@ -109,8 +111,8 @@ describe("Schema", () => {
     );
 
     // a self-link is added when the url has a name
-    expect(schema.scope.own(Term.schema())?.location).toBe(
-      HgRef.graph("https://specs/me")
+    expect(schema.scope.own('')?.hgref).toBe(
+      HgRef.schema("https://specs/me")
     );
 
     // directive terms with the same name as the current schema
@@ -154,6 +156,125 @@ describe("Schema", () => {
     expect(linkDef.hgref).toBe(
       HgRef.rootDirective("https://specs.apollo.dev/link/v0.3")
     );
+  });
+
+  describe("fillDefinitions", () => {
+    const schema = Schema.from(
+      parse(`
+      extend schema
+        @id(url: "https://specs/me")
+        @link(url: "https://specs.apollo.dev/federation/v2.0",
+          import: "@requires @key @prov: @provides")
+          
+        type User @key(fields: "id") {
+          id: ID!
+        }
+    `),
+      base
+    );
+
+    it("fills definitions", () => {
+      expect(print(schema.fillDefinitions().document)).toBe(
+        `extend schema @id(url: "https://specs/me") @link(url: "https://specs.apollo.dev/federation/v2.0", import: "@requires @key @prov: @provides")
+
+type User @key(fields: "id") {
+  id: ID!
+}
+
+directive @id(url: link__Url!, as: link__Schema) on SCHEMA
+
+directive @link(url: link__Url!, as: link__Schema, import: link__Import) repeatable on SCHEMA`
+      );
+    });
+
+    it("reports errors", () => {
+      const result = recall(() => schema.fillDefinitions()).getResult();
+      expect([...result.errors()].map((err) => err.toString()))
+        .toMatchInlineSnapshot(`
+        Array [
+          "[NoDefinition] no definitions found for reference
+
+        GraphQL request:7:19
+        6 |           
+        7 |         type User @key(fields: \\"id\\") {
+          |                   ^
+        8 |           id: ID!",
+          "[NoDefinition] no definitions found for reference
+
+        GraphQL request:8:15
+        7 |         type User @key(fields: \\"id\\") {
+        8 |           id: ID!
+          |               ^
+        9 |         }",
+          "[NoDefinition] no definitions found for reference
+
+        builtins.graphql:8:17
+        7 |     repeatable on SCHEMA
+        8 |   directive @id(url: link__Url!, as: link__Schema) on SCHEMA
+          |                 ^
+        9 |
+
+        builtins.graphql:6:19
+        5 |     
+        6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
+          |                   ^
+        7 |     repeatable on SCHEMA",
+          "[NoDefinition] no definitions found for reference
+
+        builtins.graphql:8:22
+        7 |     repeatable on SCHEMA
+        8 |   directive @id(url: link__Url!, as: link__Schema) on SCHEMA
+          |                      ^
+        9 |
+
+        builtins.graphql:6:24
+        5 |     
+        6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
+          |                        ^
+        7 |     repeatable on SCHEMA",
+          "[NoDefinition] no definitions found for reference
+
+        builtins.graphql:8:34
+        7 |     repeatable on SCHEMA
+        8 |   directive @id(url: link__Url!, as: link__Schema) on SCHEMA
+          |                                  ^
+        9 |
+
+        builtins.graphql:6:36
+        5 |     
+        6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
+          |                                    ^
+        7 |     repeatable on SCHEMA",
+          "[NoDefinition] no definitions found for reference
+
+        builtins.graphql:8:38
+        7 |     repeatable on SCHEMA
+        8 |   directive @id(url: link__Url!, as: link__Schema) on SCHEMA
+          |                                      ^
+        9 |
+
+        builtins.graphql:6:40
+        5 |     
+        6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
+          |                                        ^
+        7 |     repeatable on SCHEMA",
+          "[NoDefinition] no definitions found for reference
+
+        builtins.graphql:6:54
+        5 |     
+        6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
+          |                                                      ^
+        7 |     repeatable on SCHEMA",
+          "[NoDefinition] no definitions found for reference
+
+        builtins.graphql:6:62
+        5 |     
+        6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
+          |                                                              ^
+        7 |     repeatable on SCHEMA",
+        ]
+      `);
+    });
   });
 });
 

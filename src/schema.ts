@@ -1,24 +1,31 @@
-import recall, { use } from '@protoplasm/recall'
-import { ASTNode, DefinitionNode, DirectiveNode, DocumentNode, ExecutableDefinitionNode, Kind, NamedTypeNode, SchemaDefinitionNode, SchemaExtensionNode, visit } from 'graphql'
+import recall, { report, use } from '@protoplasm/recall'
+import { ASTNode, DefinitionNode, DirectiveNode, DocumentNode, ExecutableDefinitionNode, Kind, NamedTypeNode, visit } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import bootstrap, { id, Scope, ScopeMut, SelfLink } from './bootstrap'
+import bootstrap, { id, Link, Scope, ScopeMut } from './bootstrap'
 import directives from './directives'
-import { Term, HgRef } from './hgref'
+import err from './error'
+import { HgRef, scopeNameFor } from './hgref'
 import { isAst } from './is'
 import { ScopeMap } from './scope-map'
 
+export const ErrNoDefinition = (hgref: HgRef, ...nodes: ASTNode[]) =>
+  err('NoDefinition', {
+    message: 'no definitions found for reference',
+    hgref,
+    nodes
+  })
+
 export type Locatable =
-  | Exclude<DefinitionNode, ExecutableDefinitionNode | SchemaDefinitionNode | SchemaExtensionNode>
+  | Exclude<DefinitionNode, ExecutableDefinitionNode>
   | DirectiveNode
   | NamedTypeNode
 
-export type Located =
-  Locatable & { hgref: HgRef }
+export type Located = Locatable & { hgref: HgRef }
 
 const LOCATABLE_KINDS = new Set([
   ...Object.values(Kind)
     .filter(k => k.endsWith('Definition') || k.endsWith('Extension'))    
-    .filter(k => !k.startsWith('Schema') && !k.startsWith('Field'))
+    .filter(k => !k.startsWith('Field'))
     .filter(k => k !== 'OperationDefinition' && k !== 'FragmentDefinition'),
   Kind.DIRECTIVE,
   Kind.NAMED_TYPE,
@@ -40,30 +47,109 @@ export class Schema {
           const linker = linkerFor(scope, dir)          
           if (!linker) continue
           for (const link of linker(dir)) {
-            scope.set(link.term, link)
+            scope.set(link.name, link)
           }
         }
         const self = selfIn(scope, directives(this.document))
         if (self) {
-          // an empty schema ref points to self
-          scope.set(Term.schema(), self)
-          scope.set(Term.directive(self.term.name), {
+          scope.set('', self)
+          scope.set('@' + self.name, {
             ...self,
-            location: HgRef.rootDirective(self.location.graph)
+            hgref: HgRef.rootDirective(self.hgref.graph)
           })
         }
       })
   }
 
-  definitions(ref: HgRef): Iterable<Hg<Locatable>> {  
+  get url() { return this.self?.hgref.graph }
+
+  get self() { return this.scope.own('') }
+
+  definitions(ref?: HgRef): Iterable<Hg<Locatable>> {  
+    if (!ref) return this.ownDefs()
     if (this.url && !ref.graph) ref = ref.setGraph(this.url)
     return this.defMap.get(ref) ?? []
   }
 
-  *lookupDefinitions(ref: HgRef): Iterable<Hg<Locatable>> {
+  private *ownDefs(): Iterable<Hg<Locatable>> {
+    for (const def of this.document.definitions) {
+      if (isLocatable(def)) yield this.denormalize(def)
+    }
+  }
+
+  *lookupDefinitions(ref?: HgRef): Iterable<Hg<Locatable>> {
     yield *this.definitions(ref)
     if (this.parent)
       yield *this.parent.lookupDefinitions(ref)
+  }
+
+  @use(recall)
+  locate(node: Locatable): HgRef {
+    if (isAst(node, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
+      return HgRef.schema(this.url)
+    }
+    const [ prefix, name ] = getPrefix(node.name.value)    
+    const { scope } = this
+    
+    if (prefix) {
+      const found = scope.lookup(prefix)
+      if (found) return HgRef.canon(scopeNameFor(node, name), found.hgref.graph)
+    }
+
+    // if there was no prefix OR the prefix wasn't found,
+    // treat the entire name as a local name
+    //
+    // this means that prefixed__Names will be interpreted
+    // as local names if and only if the prefix has not been `@link`ed 
+    //
+    // this allows for universality — it is always possible to represent
+    // any api with a core schema by appropriately selecting link names
+    // with `@link(as:)` or `@link(import:)`, even if the desired
+    // api contains double-underscored names (odd choice, but you do you)
+    return scope.lookup(scopeNameFor(node))?.hgref ?? HgRef.canon(scopeNameFor(node), this.url)
+  }
+
+  fillDefinitions(): Schema {
+    const notDefined = new Map<HgRef, Located[]>()
+    const failed = new Set<HgRef>()
+    const addDefs = new Map<HgRef, Hg<DefinitionNode>>()  
+
+    const ingest = (def: ASTNode) => {
+      for (const node of deepRefs(def)) {
+        const [first] = this.definitions(node.hgref)
+        if (!first && !addDefs.has(node.hgref))
+          if (notDefined.has(node.hgref))
+            notDefined.get(node.hgref)?.push(node)
+          else
+            notDefined.set(node.hgref, [node])
+      }
+    }
+
+    for (const def of this.definitions())
+      ingest(def)
+
+    while (notDefined.size) {
+      const [ref, nodes] = notDefined.entries().next().value      
+      if (!ref) break
+      notDefined.delete(ref)
+      if (failed.has(ref)) continue
+      const defs = [...this.lookupDefinitions(ref)]
+      if (!defs.length) {
+        report(ErrNoDefinition(ref, ...nodes))
+        failed.add(ref)
+      }
+      for (const def of defs) {        
+        if (!addDefs.has(ref)) {
+          ingest(def)
+          addDefs.set(ref, def as Hg<DefinitionNode>)
+        }
+      }
+    }
+
+    return Schema.from({ ...this.document, definitions: [
+      ...this.document.definitions, 
+      ...addDefs.values()
+    ]}, this.parent)
   }
 
   @use(recall)
@@ -77,28 +163,6 @@ export class Schema {
         return
       }
     }) as Hg<T>
-  }
-
-  get url() { return this.self?.location.graph }
-
-  get self() { return this.scope.own(Term.schema()) }
-
-  locate(node: Locatable): HgRef {
-    const [ prefix, name ] = getPrefix(node.name.value)    
-    const { scope: links } = this
-    
-    if (prefix) {
-      const element = isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
-        ? Term.directive(name)
-        : Term.named(name)
-      const found = links.lookup(Term.schema(prefix))
-      if (found) return found.location.setTerm(element)
-    }
-
-    const element = isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)
-      ? Term.directive(node.name.value)
-      : Term.named(node.name.value)
-    return links.lookup(element)?.location ?? HgRef.canon(element, this.url)
   }
 
   private get defMap(): Readonly<Map<HgRef, readonly Hg<Locatable>[]>> {
@@ -157,7 +221,7 @@ type ChildOf<T> =
     :
   T
 
-export function *deepRefs(root: ASTNode): Iterable<Located> {  
+export function *deepRefs(root: ASTNode | Iterable<ASTNode>): Iterable<Located> {  
   if (isLocatable(root) && hasRef(root)) yield root
   for (const child of children(root)) {
     if (isAst(child)) yield *deepRefs(child)
@@ -178,19 +242,19 @@ export const hasRef = (o?: any): o is { hgref: HgRef } =>
   o?.hgref instanceof HgRef
 
 const linkerFor = recall(
-  function linkerFor(links: Scope, dir: DirectiveNode) {
+  function linkerFor(scope: Scope, dir: DirectiveNode) {
     const self = bootstrap(dir)
     if (self) return self
-    const other = links.lookup(Term.directive(dir.name.value))
+    const other = scope.lookup('@' + dir.name.value)
     if (!other) return
     return bootstrap(other.via)
   }
 )
 
 const selfIn = recall(
-  function self(links: Scope, directives: Iterable<DirectiveNode>): Maybe<SelfLink> {
+  function self(scope: Scope, directives: Iterable<DirectiveNode>): Maybe<Link> {
     for (const dir of directives) {
-      const self = id(links, dir)
+      const self = id(scope, dir)
       if (self) return self
     }
     return null
