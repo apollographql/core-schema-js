@@ -86,14 +86,10 @@ const $id = new GraphQLDirective({
 })
 
 const ID_DIRECTIVE = HgRef.rootDirective('https://specs.apollo.dev/id/v1.0')
-const ID_SCHEMA = HgRef.schema('https://specs.apollo.dev/id/v1.0')
 
 export const id = recall(
   function id(scope: IScope, dir: DirectiveNode): Maybe<Link> {
-    const link = scope.lookup('@' + dir.name.value)
-    if (!link) return
-    const {hgref: location} = link
-    if (location === ID_DIRECTIVE || location === ID_SCHEMA) {
+    if (scope.locate(dir) === ID_DIRECTIVE) {
       const args = getArgumentValues($id, dir)
       const url = args.url as LinkUrl
       const name: string = (args.as ?? url.name) as string

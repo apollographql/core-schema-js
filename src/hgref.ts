@@ -1,6 +1,5 @@
 import recall, { use } from '@protoplasm/recall'
 import LinkUrl from './location'
-import type { ASTNode, NameNode } from 'graphql'
 
 export class HgRef {
   @use(recall)
