@@ -1,12 +1,12 @@
 import recall, { report, use } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, DocumentNode, ExecutableDefinitionNode, Kind, NamedTypeNode, visit } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import bootstrap, { id, Link, Scope, ScopeMut } from './bootstrap'
+import bootstrap, { id, Link } from './bootstrap'
 import directives from './directives'
 import err from './error'
-import { HgRef, scopeNameFor } from './hgref'
+import { HgRef } from './hgref'
 import { isAst } from './is'
-import { ScopeMap } from './scope-map'
+import Scope, { IScopeMut, IScope } from './scope'
 
 export const ErrNoDefinition = (hgref: HgRef, ...nodes: ASTNode[]) =>
   err('NoDefinition', {
@@ -40,23 +40,23 @@ export class Schema {
     return new this(document, parent)
   }
 
-  public get scope(): Scope {
-    return (this.parent?.scope ?? ScopeMap.EMPTY).child(
-      (scope: ScopeMut) => {
+  public get scope(): Readonly<IScope> {
+    return (this.parent?.scope ?? Scope.EMPTY).child(
+      (scope: IScopeMut) => {
         for (const dir of directives(this.document)) {
           const linker = linkerFor(scope, dir)          
           if (!linker) continue
           for (const link of linker(dir)) {
-            scope.set(link.name, link)
+            scope.add(link)
           }
         }
         const self = selfIn(scope, directives(this.document))
         if (self) {
-          scope.set('', self)
-          scope.set('@' + self.name, {
+          scope.add(self, '')
+          scope.add({
             ...self,
             hgref: HgRef.rootDirective(self.hgref.graph)
-          })
+          }, '@' + self.name)
         }
       })
   }
@@ -83,30 +83,30 @@ export class Schema {
       yield *this.parent.lookupDefinitions(ref)
   }
 
-  @use(recall)
   locate(node: Locatable): HgRef {
-    if (isAst(node, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
-      return HgRef.schema(this.url)
-    }
-    const [ prefix, name ] = getPrefix(node.name.value)    
-    const { scope } = this
+    return this.scope.locate(node)
+    // if (isAst(node, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
+    //   return HgRef.schema(this.url)
+    // }
+    // const [ prefix, name ] = getPrefix(node.name.value)    
+    // const { scope } = this
     
-    if (prefix) {
-      const found = scope.lookup(prefix)
-      if (found) return HgRef.canon(scopeNameFor(node, name), found.hgref.graph)
-    }
+    // if (prefix) {
+    //   const found = scope.lookup(prefix)
+    //   if (found) return HgRef.canon(scopeNameFor(node, name), found.hgref.graph)
+    // }
 
-    // if there was no prefix OR the prefix wasn't found,
-    // treat the entire name as a local name
-    //
-    // this means that prefixed__Names will be interpreted
-    // as local names if and only if the prefix has not been `@link`ed 
-    //
-    // this allows for universality — it is always possible to represent
-    // any api with a core schema by appropriately selecting link names
-    // with `@link(as:)` or `@link(import:)`, even if the desired
-    // api contains double-underscored names (odd choice, but you do you)
-    return scope.lookup(scopeNameFor(node))?.hgref ?? HgRef.canon(scopeNameFor(node), this.url)
+    // // if there was no prefix OR the prefix wasn't found,
+    // // treat the entire name as a local name
+    // //
+    // // this means that prefixed__Names will be interpreted
+    // // as local names if and only if the prefix has not been `@link`ed 
+    // //
+    // // this allows for universality — it is always possible to represent
+    // // any api with a core schema by appropriately selecting link names
+    // // with `@link(as:)` or `@link(import:)`, even if the desired
+    // // api contains double-underscored names (odd choice, but you do you)
+    // return scope.lookup(scopeNameFor(node))?.hgref ?? HgRef.canon(scopeNameFor(node), this.url)
   }
 
   fillDefinitions(): Schema {
@@ -242,7 +242,7 @@ export const hasRef = (o?: any): o is { hgref: HgRef } =>
   o?.hgref instanceof HgRef
 
 const linkerFor = recall(
-  function linkerFor(scope: Scope, dir: DirectiveNode) {
+  function linkerFor(scope: IScope, dir: DirectiveNode) {
     const self = bootstrap(dir)
     if (self) return self
     const other = scope.lookup('@' + dir.name.value)
@@ -252,7 +252,7 @@ const linkerFor = recall(
 )
 
 const selfIn = recall(
-  function self(scope: Scope, directives: Iterable<DirectiveNode>): Maybe<Link> {
+  function self(scope: IScope, directives: Iterable<DirectiveNode>): Maybe<Link> {
     for (const dir of directives) {
       const self = id(scope, dir)
       if (self) return self
@@ -260,9 +260,3 @@ const selfIn = recall(
     return null
   }
 )
-
-function getPrefix(name: string, sep = '__'): [string | null, string] {
-  const idx = name.indexOf(sep)
-  if (idx === -1) return [null, name]
-  return [name.substr(0, idx), name.substr(idx + sep.length)]
-}

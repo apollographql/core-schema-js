@@ -1,10 +1,9 @@
 import ScopeMap from '../scope-map'
 
 describe("scope maps", () => {
-  const scope = ScopeMap.create<string, string>(scope => {
-    scope.set('hello', 'world')
-    scope.set('goodbye', 'friend')
-  })
+  const scope = new ScopeMap<string, string>()
+  scope.set('hello', 'world')
+  scope.set('goodbye', 'friend')
 
   it("stores entries", () => {
     expect([...scope.entries()]).toEqual([
@@ -15,10 +14,9 @@ describe("scope maps", () => {
     expect(scope.lookup('goodbye')).toBe('friend')
   })
 
-  const child = scope.child(scope => {
-    scope.set('hello', 'child world')
-    scope.set('farewell', 'child')
-  })
+  const child = new ScopeMap(scope)
+  child.set('hello', 'child world')
+  child.set('farewell', 'child')
 
   it("looks up entries heirarchically", () => {
     expect(child.lookup('hello')).toBe('child world')

@@ -41,12 +41,3 @@ export class HgRef {
 }
 
 export default HgRef
-
-export function scopeNameFor(
-  node: { kind: ASTNode["kind"], name: NameNode },
-  name = node.name.value
-) {
-  if (node.kind === 'Directive' || node.kind === 'DirectiveDefinition')
-    return '@' + name
-  return name
-}
