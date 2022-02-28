@@ -85,28 +85,6 @@ export class Schema {
 
   locate(node: Locatable): HgRef {
     return this.scope.locate(node)
-    // if (isAst(node, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
-    //   return HgRef.schema(this.url)
-    // }
-    // const [ prefix, name ] = getPrefix(node.name.value)    
-    // const { scope } = this
-    
-    // if (prefix) {
-    //   const found = scope.lookup(prefix)
-    //   if (found) return HgRef.canon(scopeNameFor(node, name), found.hgref.graph)
-    // }
-
-    // // if there was no prefix OR the prefix wasn't found,
-    // // treat the entire name as a local name
-    // //
-    // // this means that prefixed__Names will be interpreted
-    // // as local names if and only if the prefix has not been `@link`ed 
-    // //
-    // // this allows for universality — it is always possible to represent
-    // // any api with a core schema by appropriately selecting link names
-    // // with `@link(as:)` or `@link(import:)`, even if the desired
-    // // api contains double-underscored names (odd choice, but you do you)
-    // return scope.lookup(scopeNameFor(node))?.hgref ?? HgRef.canon(scopeNameFor(node), this.url)
   }
 
   fillDefinitions(): Schema {
@@ -129,8 +107,7 @@ export class Schema {
       ingest(def)
 
     while (notDefined.size) {
-      const [ref, nodes] = notDefined.entries().next().value      
-      if (!ref) break
+      const [ref, nodes] = notDefined.entries().next().value
       notDefined.delete(ref)
       if (failed.has(ref)) continue
       const defs = [...this.lookupDefinitions(ref)]
