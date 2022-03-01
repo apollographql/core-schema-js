@@ -1,4 +1,5 @@
-export {Schema, ErrNoDefinition} from './schema'
+export {ErrNoDefinition} from './de'
+export {Schema} from './schema'
 export {Version} from './version'
 export {err} from './error'
 // export * from './errors'

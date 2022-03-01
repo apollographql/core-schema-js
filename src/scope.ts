@@ -7,6 +7,9 @@ import { getPrefix, scopeNameFor } from './names'
 import { Locatable } from './schema'
 import ScopeMap from './scope-map'
 
+/**
+ * Scopes link local names to global graph locations.
+ */
 export interface IScope {
   readonly url?: LinkUrl
   readonly self?: Link
@@ -22,10 +25,6 @@ export interface IScopeMut extends IScope {
   add(link: Link, name?: string): void
 }
 
-/**
- * Scopes link local names to hgrefs.
- * 
- */
 export class Scope implements IScope {
   static readonly EMPTY = this.create()
 
@@ -72,14 +71,14 @@ export class Scope implements IScope {
     return Scope.create(fn, this)
   }
 
-  //@ts-ignore
+  //@ts-ignore — accessible via IScopeMut
   private add(link: Link, name = link.name): void {
     this.names.set(name, link)
   }
 
   private readonly names: ScopeMap<string, Link> = new ScopeMap(this.parent?.names)
 
-  protected constructor(public readonly parent?: Scope) {}
+  private constructor(public readonly parent?: Scope) {}
 }
 
 export default Scope

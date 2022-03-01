@@ -1,5 +1,5 @@
 import type { ASTNode } from 'graphql'
-import { hasRef } from '../schema'
+import { hasRef } from '../de'
 
 /**
  * Serialize AST nodes as a snippet of the source.
@@ -22,6 +22,9 @@ export const print = (val: ASTNode) => {
   const hgref = hasRef(val)
     ? `<${val.hgref?.toString() ?? ''}>`
     : ''
-  return `${hgref}[${val.loc.source.name}:${line}:${loc.startToken.column}] ${text}`
+  const col = loc.startToken.start - start.start
+  const head = text.substring(0, col)
+  const tail = text.substring(col)
+  return `${hgref}[${val.loc.source.name}] ${head}👉${tail}`
 }
 
