@@ -30,6 +30,30 @@ export class LinkUrl {
     return this.canon(url.href, name ?? undefined, version ?? undefined)
   }
 
+  *suggestNames(): Iterable<string> {
+    if (this.name) yield this.name
+    if (this.name && this.version) {
+      yield this.name + '_' + this.version.major
+      yield this.name + '_' + this.version.major + '_' + this.version.minor
+    }
+    const url = new URL(this.href)
+    if (url.hostname) {
+      const parts = url.hostname.split('.')
+      const [longest] = [...parts].sort((a, b) => b.length - a.length)
+      if (this.name) {
+        yield longest + '_' + this.name
+        yield parts.join('_') + '_' + this.name
+      } else {
+        yield longest
+        yield parts.join('_')
+      }
+    }
+    const baseName = this.name || 'linked_schema'
+    for (let i = 1;;++i) {
+      yield baseName + '_' + i
+    }
+  }
+
   @use(recall)
   private static canon(href: string, name?: string, version?: Version): LinkUrl {
     return new this(href, name, version)

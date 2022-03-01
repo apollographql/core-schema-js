@@ -1,9 +1,8 @@
 import recall, { report } from '@protoplasm/recall'
-import { ASTNode, Kind } from 'graphql'
+import { ASTNode, DefinitionNode, DirectiveNode, ExecutableDefinitionNode, Kind, NamedTypeNode } from 'graphql'
 import err from './error'
 import HgRef from './hgref'
 import { isAst } from './is'
-import { isLocatable, Locatable, Located } from './schema'
 
 export const ErrNoDefinition = (hgref: HgRef, ...nodes: ASTNode[]) =>
   err('NoDefinition', {
@@ -41,8 +40,15 @@ export type De<T> =
     :    
   T
 
-export type Def = De<Located>
+export type Def = De<DefinitionNode>
 export type Defs = Iterable<Def>
+
+export type Locatable =
+  | DefinitionNode
+  | DirectiveNode
+  | NamedTypeNode
+
+export type Located = Locatable & { hgref: HgRef }
 
 
 /**
@@ -81,43 +87,47 @@ export const byRef = recall(
  * @param defs 
  * @returns 
  */
-export function fill(atlas: Defs, source: Defs): Defs {
+export function fill(source: Defs, atlas?: Defs): Defs {
   const notDefined = new Map<HgRef, Locatable[]>()
   const failed = new Set<HgRef>()
-  const addDefs = new Map<HgRef, Defs>()
+  const added = new Set<HgRef>()
   const fill: Def[] = []
+  const atlasDefs = atlas ? byRef(atlas) : null
 
-  const ingest = (def: ASTNode) => {
-    for (const node of deepRefs(def)) {
-      const [first] = byRef(source).get(node.hgref) ?? []
-      if (!first && !addDefs.has(node.hgref))
-        if (notDefined.has(node.hgref))
-          notDefined.get(node.hgref)?.push(node)
+  const ingest = (defs: Defs) => {
+    for (const ref of refsInDefs(defs)) {
+      const defs = byRef(source).get(ref.hgref)
+      if (!defs && !added.has(ref.hgref))
+        if (notDefined.has(ref.hgref))
+          notDefined.get(ref.hgref)!.push(ref)
         else
-          notDefined.set(node.hgref, [node])
+          notDefined.set(ref.hgref, [ref])
     }
   }
 
-  for (const def of source)
-    ingest(def)
-
+  ingest(source)
   while (notDefined.size) {
     const [ref, nodes] = notDefined.entries().next().value
     notDefined.delete(ref)
     if (failed.has(ref)) continue
-    if (addDefs.has(ref)) continue
-    const defs = byRef(atlas).get(ref)
+    if (added.has(ref)) continue
+    const defs = atlasDefs?.get(ref)    
     if (!defs) {
       report(ErrNoDefinition(ref, ...nodes))
       failed.add(ref)
     } else {
-      for (const def of defs) ingest(def)
-      addDefs.set(ref, defs)
+      ingest(defs)      
+      added.add(ref)
       fill.push(...defs)
     }
   }  
 
   return fill
+}
+
+export function *refsInDefs(defs: Defs): Iterable<Located> {
+  for (const def of defs)
+    yield* deepRefs(def)
 }
 
 export function *deepRefs(root: ASTNode | Iterable<ASTNode>): Iterable<Located> {
@@ -152,3 +162,21 @@ export function *children<T>(root: T): Iterable<ChildOf<T>> {
 
 export const hasRef = (o?: any): o is { hgref: HgRef } =>
   o?.hgref instanceof HgRef
+
+
+const LOCATABLE_KINDS = new Set([
+  ...Object.values(Kind)
+    .filter(k => k.endsWith('Definition') || k.endsWith('Extension'))    
+    .filter(k => !k.startsWith('Field'))
+    .filter(k => k !== 'OperationDefinition' && k !== 'FragmentDefinition'),
+  Kind.DIRECTIVE,
+  Kind.NAMED_TYPE,
+])
+
+export function isLocatable(o: any): o is Locatable {
+  return LOCATABLE_KINDS.has(o?.kind)
+}
+
+export function isLocated(o: any): o is Located {
+  return isLocatable(o) && hasRef(o)
+}

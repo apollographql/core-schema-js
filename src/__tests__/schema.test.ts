@@ -1,7 +1,8 @@
 import { Kind, parse, Source } from "graphql";
+import { Locatable } from "../de";
 import { HgRef } from "../hgref";
 import LinkUrl from "../location";
-import Schema, { Locatable } from "../schema";
+import Schema from "../schema";
 
 const base = Schema.from(
   parse(

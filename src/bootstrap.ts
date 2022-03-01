@@ -1,4 +1,4 @@
-import recall, { replay } from '@protoplasm/recall'
+import recall, { replay, use } from '@protoplasm/recall'
 import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
@@ -57,11 +57,11 @@ const $bootstrap = new GraphQLDirective({
 export interface Link {
   name: string
   hgref: HgRef
-  via: DirectiveNode
-  self?: true
+  via?: DirectiveNode
+  linker?: Linker
 }
 
-export type Linker = (directive: DirectiveNode) => Iterable<Link>
+// export type Linker = (directive: DirectiveNode) => Iterable<Link>
 
 export default recall(
   function bootstrap(bootstrap: DirectiveNode): Maybe<Linker> {    
@@ -71,7 +71,7 @@ export default recall(
     const urlArg = LINK_SPECS.get(url.href)
     if (!urlArg) return
     if (args[urlArg] !== url) return
-    return linker(bootstrap, urlArg)
+    // return linker(bootstrap, urlArg)
   }
 )
 
@@ -97,7 +97,6 @@ export const id = recall(
         name,
         hgref: HgRef.schema(url),
         via: dir,
-        self: true
       }
     }
     return null
@@ -140,4 +139,69 @@ function linker(strap: DirectiveNode, urlParam: string) {
       }
     }
   )
+}
+
+export class Linker {
+  static from(scope: IScope, dir: DirectiveNode): Maybe<Linker> {
+    const self = this.bootstrap(dir)
+    if (self) return self
+    const other = scope.lookup('@' + dir.name.value)
+    return other?.linker
+  }
+
+  @use(recall)
+  static bootstrap(strap: DirectiveNode): Maybe<Linker> {    
+    const args = getArgumentValues($bootstrap, strap)
+    const url: Maybe<LinkUrl> = (args.url ?? args.feature) as LinkUrl
+    if (!url) return
+    const urlArg = LINK_SPECS.get(url.href)
+    if (!urlArg) return
+    if (args[urlArg] !== url) return
+    return new this(strap, urlArg)
+  }
+
+  protected constructor(public readonly strap: DirectiveNode,
+    private readonly urlParam: string) {}
+
+  #link = new GraphQLDirective({
+    name: this.strap.name.value,
+    args: {
+      [this.urlParam]: { type: new GraphQLNonNull(Url) },
+      as: { type: Name },
+      import: { type: Imports },
+    },
+    locations: [DirectiveLocation.SCHEMA],
+    isRepeatable: true,
+  })
+
+  @use(replay)
+  *links(directive: DirectiveNode): Iterable<Link> {
+    const args = getArgumentValues(this.#link, directive)
+    const url = args[this.urlParam] as LinkUrl
+    const name: string = (args.as ?? url.name) as string
+    if (name !== '') {
+      yield {
+        name,
+        hgref: HgRef.schema(url),
+        via: directive,
+        linker: this,
+      }
+      yield {
+        name: '@' + name,
+        hgref: HgRef.rootDirective(url),
+        via: directive,
+        linker: this,
+      }
+    }
+    for (const i of args.import as ImportNode[] ?? []) {
+      const alias = scopeNameFor(i.alias ?? i.element)
+      const name = scopeNameFor(i.element)
+      yield {
+        name: alias,
+        hgref: HgRef.canon(name, url),
+        via: directive,
+        linker: this,
+      }
+    }    
+  }
 }

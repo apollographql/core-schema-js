@@ -6,6 +6,14 @@ export class ScopeMap<K, V> {
     return this.#entries.get(key)
   }
 
+  has(key: K): boolean {
+    return this.hasOwn(key) || !!this.parent?.has(key)
+  }
+
+  hasOwn(key: K): boolean {
+    return this.#entries.has(key)
+  }
+
   lookup(key: K): V | undefined {
     return this.own(key) ?? this.parent?.lookup(key)
   }
@@ -27,13 +35,18 @@ export class ScopeMap<K, V> {
     }
   }
 
-  readonly #entries = new Map<K, V>()
+  readonly #entries: Map<K, V>
 
   set(key: K, value: V): void {
     this.#entries.set(key, value)
   }
 
-  constructor(public readonly parent?: ScopeMap<K, V>) {}
+  constructor(
+    public readonly parent?: ScopeMap<K, V>,
+    entries = new Map<K, V>()
+  ) {
+    this.#entries = entries
+  }
 }
 
 export default ScopeMap

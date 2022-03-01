@@ -1,33 +1,11 @@
-import recall, { report, use } from '@protoplasm/recall'
-import { ArgumentNode, ASTNode, DefinitionNode, DirectiveNode, DocumentNode, ExecutableDefinitionNode, Kind, NamedTypeNode, visit } from 'graphql'
+import recall from '@protoplasm/recall'
+import { ASTNode, DirectiveNode, DocumentNode, Kind } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { byRef, De, Defs } from './de'
-import bootstrap, { id, Link } from './bootstrap'
+import { deepRefs, refsInDefs, byRef, De, Defs, isLocatable, Locatable, fill } from './de'
+import bootstrap, { id, Link, Linker } from './bootstrap'
 import directives from './directives'
-import err from './error'
 import { HgRef } from './hgref'
-import { isAst } from './is'
-import Scope, { IScopeMut, IScope } from './scope'
-
-export type Locatable =
-  | Exclude<DefinitionNode, ExecutableDefinitionNode>
-  | DirectiveNode
-  | NamedTypeNode
-
-export type Located = Locatable & { hgref: HgRef }
-
-const LOCATABLE_KINDS = new Set([
-  ...Object.values(Kind)
-    .filter(k => k.endsWith('Definition') || k.endsWith('Extension'))    
-    .filter(k => !k.startsWith('Field'))
-    .filter(k => k !== 'OperationDefinition' && k !== 'FragmentDefinition'),
-  Kind.DIRECTIVE,
-  Kind.NAMED_TYPE,
-])
-
-export function isLocatable(o: any): o is Locatable {
-  return LOCATABLE_KINDS.has(o?.kind)
-}
+import Scope, { including, IScope } from './scope'
 
 export class Schema implements Defs {
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
@@ -36,13 +14,30 @@ export class Schema implements Defs {
     return new this(document, frame)
   }
 
-  public get scope(): Readonly<IScope> {
+  // static compile(defs: Defs, local: IScope = Scope.EMPTY) {
+  //   // const scope = scope.
+    
+  //   local.child(
+  //     scope => {
+  //       for (const def of defs)
+  //         ingest(def)
+        
+  //       function ingest(node: De<ASTNode>) {
+  //         for (const ref of deepRefs(node)) {
+            
+  //         }
+  //       }
+  //     }
+  //   )
+  // }
+
+  public get scope(): IScope {
     return this.frame.child(
-      (scope: IScopeMut) => {
+      scope => {
         for (const dir of directives(this.document)) {
-          const linker = linkerFor(scope, dir)          
+          const linker = Linker.from(scope, dir)
           if (!linker) continue
-          for (const link of linker(dir)) {
+          for (const link of linker.links(dir)) {
             scope.add(link)
           }
         }
@@ -61,8 +56,9 @@ export class Schema implements Defs {
   get self() { return this.scope.self }
 
   *[Symbol.iterator]() {
+    const {scope} = this
     for (const def of this.document.definitions) {
-      if (isLocatable(def)) yield this.denormalize(def)
+      if (isLocatable(def)) yield scope.denormalize(def)
     }
   }
 
@@ -76,18 +72,20 @@ export class Schema implements Defs {
     return this.scope.locate(node)
   }
 
-  @use(recall)
-  denormalize<T extends ASTNode>(node: T): De<T> {
-    const self = this
-    return visit(node, {
-      enter<T extends ASTNode>(node: T, _: any, ): De<T> | undefined {
-        if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
-        if (isLocatable(node)) {
-          return { ...node, hgref: self.locate(node) } as De<T>
-        }
-        return
-      }
-    }) as De<T>
+  // compile(atlas?: Defs): Schema {
+  //   const defs = fill(this, atlas)
+  // }
+
+  append(defs: Defs): Schema {
+    const scope = this.scope.child(including(refsInDefs(defs)))
+
+    return Schema.from({
+      kind: Kind.DOCUMENT,
+      definitions: [
+        ...this.definitions(),
+        ...scope.renormalizeDefs(defs)
+      ]
+    }, scope.parent?.parent)
   }
 
   protected constructor(
@@ -103,7 +101,7 @@ const linkerFor = recall(
     const self = bootstrap(dir)
     if (self) return self
     const other = scope.lookup('@' + dir.name.value)
-    if (!other) return
+    if (!other?.via) return
     return bootstrap(other.via)
   }
 )

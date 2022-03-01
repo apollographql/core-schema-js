@@ -1,6 +1,6 @@
 import recall from "@protoplasm/recall";
 import { Kind, parse, Source } from "graphql";
-import { deepRefs, fill } from "../de";
+import { deepRefs, fill, refsInDefs } from "../de";
 import HgRef from "../hgref";
 import Schema from "../schema";
 
@@ -37,7 +37,7 @@ const schema = Schema.from(
 
 describe("fill", () => {
   it("fills definitions", () => {
-    expect(fill(base, schema)).toMatchInlineSnapshot(`
+    expect(fill(schema, base)).toMatchInlineSnapshot(`
       Array [
         <https://specs.apollo.dev/id/v1.0#@>[builtins.graphql] 👉directive @id(url: link__Url!, as: link__Schema) on SCHEMA,
         <https://specs.apollo.dev/link/v0.3#@>[builtins.graphql] 👉directive @link(url: link__Url!, as: link__Schema, import: link__Import),
@@ -46,7 +46,7 @@ describe("fill", () => {
   });
 
   it("reports errors", () => {
-    const result = recall(() => fill(base, schema)).getResult();
+    const result = recall(() => fill(schema, base)).getResult();
     expect(
       [...result.errors()]
         .map((e: any) => e.code)
@@ -77,7 +77,7 @@ describe("fill", () => {
   });
 });
 
-describe("deepRefs", () => {
+describe("refsInDefs", () => {
   it("finds deep references", () => {
     const schema = Schema.from(
       parse(`
@@ -92,10 +92,8 @@ describe("deepRefs", () => {
     `),
       base
     );
-    const [User] = schema.definitions(HgRef.named("User"));
-    expect(User.hgref).toBe(HgRef.named("User"));
-    expect(User.kind).toBe(Kind.OBJECT_TYPE_DEFINITION);
-    expect([...deepRefs(User)]).toMatchInlineSnapshot(`
+    const User = schema.definitions(HgRef.named("User"));
+    expect([...refsInDefs(User)]).toMatchInlineSnapshot(`
       Array [
         <#User>[GraphQL request] 👉type User @key(fields: "id") @federation {,
         <https://specs.apollo.dev/federation/v2.0#@key>[GraphQL request] type User 👉@key(fields: "id") @federation {,
