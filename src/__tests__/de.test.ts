@@ -47,56 +47,31 @@ describe("fill", () => {
 
   it("reports errors", () => {
     const result = recall(() => fill(base, schema)).getResult();
-    expect([...result.errors()].map((err) => err.toString()))
+    expect(
+      [...result.errors()]
+        .map((e: any) => e.code)
+        .reduce((x, y) => (x !== y ? [x, y] : x))
+    ).toBe("NoDefinition");
+    expect([...result.errors()].map((err: any) => err.nodes))
       .toMatchInlineSnapshot(`
       Array [
-        "[NoDefinition] no definitions found for reference
-
-      GraphQL request:7:15
-      6 |       
-      7 |     type User @key(fields: \\"id\\") {
-        |               ^
-      8 |       id: ID!",
-        "[NoDefinition] no definitions found for reference
-
-      GraphQL request:8:11
-      7 |     type User @key(fields: \\"id\\") {
-      8 |       id: ID!
-        |           ^
-      9 |     }",
-        "[NoDefinition] no definitions found for reference
-
-      builtins.graphql:8:22
-      7 |     repeatable on SCHEMA
-      8 |   directive @id(url: link__Url!, as: link__Schema) on SCHEMA
-        |                      ^
-      9 |
-
-      builtins.graphql:6:24
-      5 |     
-      6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
-        |                        ^
-      7 |     repeatable on SCHEMA",
-        "[NoDefinition] no definitions found for reference
-
-      builtins.graphql:8:38
-      7 |     repeatable on SCHEMA
-      8 |   directive @id(url: link__Url!, as: link__Schema) on SCHEMA
-        |                                      ^
-      9 |
-
-      builtins.graphql:6:40
-      5 |     
-      6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
-        |                                        ^
-      7 |     repeatable on SCHEMA",
-        "[NoDefinition] no definitions found for reference
-
-      builtins.graphql:6:62
-      5 |     
-      6 |   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
-        |                                                              ^
-      7 |     repeatable on SCHEMA",
+        Array [
+          <https://specs.apollo.dev/federation/v2.0#@key>[GraphQL request] type User 👉@key(fields: "id") {,
+        ],
+        Array [
+          <https://specs/me#ID>[GraphQL request] id: 👉ID!,
+        ],
+        Array [
+          <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
+          <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @link(url: 👉link__Url!, as: link__Schema, import: link__Import),
+        ],
+        Array [
+          <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @id(url: link__Url!, as: 👉link__Schema) on SCHEMA,
+          <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @link(url: link__Url!, as: 👉link__Schema, import: link__Import),
+        ],
+        Array [
+          <https://specs.apollo.dev/link/v0.3#Import>[builtins.graphql] directive @link(url: link__Url!, as: link__Schema, import: 👉link__Import),
+        ],
       ]
     `);
   });
