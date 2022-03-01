@@ -1,7 +1,7 @@
 import recall, { use } from '@protoplasm/recall'
-import { byRef, De, Defs } from './de';
+import { byRef, Defs } from './de';
 import HgRef from './hgref';
-import Schema, { Located } from './schema';
+import Schema from './schema';
 
 interface IAtlas extends Defs {
 
@@ -14,15 +14,14 @@ class Atlas implements IAtlas {
   }  
 
   *definitions(ref?: HgRef): Defs {
-    if (ref)
-      return yield* byRef(...this.schemas).get(ref) ?? []
-
-    for (const schema of this.schemas)
-      yield* schema.definitions()    
+    if (!ref) return this
+    return yield* byRef(...this.schemas).get(ref) ?? []
   }
 
-
-  
+  *[Symbol.iterator]() {
+    for (const schema of this.schemas)
+      yield* schema.definitions()
+  }
   
   constructor(public readonly schemas: Schema[]) {}
 }

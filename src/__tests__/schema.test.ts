@@ -58,7 +58,7 @@ describe("Schema", () => {
         @link(url: "https://specs.apollo.dev/federation/v2.0",
           import: "@requires @key @prov: @provides")      
     `),
-      base
+      base.scope
     );
 
     // note: .toBe checks are intentional, equal hgrefs
@@ -144,13 +144,6 @@ describe("Schema", () => {
     expect(schema.definitions(schema.locate(ref("@link")))).toEqual([]);
     const link = schema.locate(ref("@link"));
     expect(link).toBe(
-      HgRef.rootDirective("https://specs.apollo.dev/link/v0.3")
-    );
-    const [linkDef] = schema.lookupDefinitions(schema.locate(ref("@link")));
-    expect(linkDef).toMatchInlineSnapshot(
-      `<https://specs.apollo.dev/link/v0.3#@>[builtins.graphql] 👉directive @link(url: link__Url!, as: link__Schema, import: link__Import)`
-    );
-    expect(linkDef.hgref).toBe(
       HgRef.rootDirective("https://specs.apollo.dev/link/v0.3")
     );
   });

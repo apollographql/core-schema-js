@@ -30,12 +30,14 @@ export function isLocatable(o: any): o is Locatable {
 }
 
 export class Schema implements Defs {
-  static from(document: DocumentNode, parent?: Schema) {
-    return new this(document, parent)
+  static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
+    if (frame instanceof Schema)
+      return new this(document, frame.scope)
+    return new this(document, frame)
   }
 
   public get scope(): Readonly<IScope> {
-    return (this.parent?.scope ?? Scope.EMPTY).child(
+    return this.frame.child(
       (scope: IScopeMut) => {
         for (const dir of directives(this.document)) {
           const linker = linkerFor(scope, dir)          
@@ -70,12 +72,6 @@ export class Schema implements Defs {
     return byRef(this).get(ref) ?? []
   }
 
-  *lookupDefinitions(ref?: HgRef): Iterable<De<Locatable>> {
-    yield *this.definitions(ref)
-    if (this.parent)
-      yield *this.parent.lookupDefinitions(ref)
-  }
-
   locate(node: Locatable): HgRef {
     return this.scope.locate(node)
   }
@@ -94,22 +90,9 @@ export class Schema implements Defs {
     }) as De<T>
   }
 
-  private get defMap(): Readonly<Map<HgRef, readonly De<Locatable>[]>> {
-    const defs = new Map<HgRef, De<Locatable>[]>()
-    for (const def of this.document.definitions) {
-      if (!isLocatable(def)) continue
-      const hgref = this.locate(def)
-      if (!hgref) continue
-      const existing = defs.get(hgref)
-      if (existing) existing.push(this.denormalize(def))
-      else defs.set(hgref, [this.denormalize(def)])
-    }
-    return defs
-  }
-
   protected constructor(
     public readonly document: DocumentNode,
-    public readonly parent?: Schema,
+    public readonly frame: IScope,
   ) {}
 }
 
