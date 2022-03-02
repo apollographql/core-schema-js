@@ -1,5 +1,5 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull } from 'graphql'
+import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ArgumentNode, ConstDirectiveNode, ConstArgumentNode } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
@@ -7,6 +7,8 @@ import type { IScope } from './scope'
 import {LinkUrl} from './location'
 import { HgRef } from './hgref'
 import { scopeNameFor } from './names'
+import { byRef } from './de'
+import { groupBy } from './each'
 
 const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/core/v0.1', 'feature'],
@@ -198,10 +200,81 @@ export class Linker {
       const name = scopeNameFor(i.element)
       yield {
         name: alias,
-        hgref: HgRef.canon(name, url),
+        hgref: HgRef.named(name, url),
         via: directive,
         linker: this,
       }
     }    
   }
+
+  *synthesize(links: Iterable<Link>): Iterable<ConstDirectiveNode> {
+    for (const [url, linksForUrl] of byUrl(links)) {
+      if (!url) continue
+      let alias: string = ''
+      const imports: [string, string][] = []
+      for (const link of linksForUrl) {
+        if (!link.hgref.name) {
+          // a link to the schema tells us the alias,
+          // if any
+          alias = link.name
+          continue
+        }
+        if (link.hgref.name === '@')          
+          continue // root directive is implict
+        imports.push([link.name, link.hgref.name])
+      }
+      const args: ConstArgumentNode[] = [{
+        kind: Kind.ARGUMENT,
+        name: {
+          kind: Kind.NAME,
+          value: this.urlParam
+        },
+        value: {
+          kind: Kind.STRING,
+          value: url.href,
+        },
+      }]
+
+      if (alias === '' || alias !== url.name) {
+        args.push({
+          kind: Kind.ARGUMENT,
+          name: {
+            kind: Kind.NAME,
+            value: 'as',
+          },
+          value: {
+            kind: Kind.STRING,
+            value: alias
+          },
+        })
+      }
+
+      if (imports.length) {
+        args.push({
+          kind: Kind.ARGUMENT,
+          name: {
+            kind: Kind.NAME,
+            value: 'import',
+          },
+          value: {
+            kind: Kind.STRING,
+            value: imports.map(([alias, name]) =>
+              alias === name
+                ? name
+                : `${alias}: ${name}`
+            ).join(' ')
+          },
+        })
+      }
+        
+      yield {
+        kind: Kind.DIRECTIVE,
+        name: this.strap.name,
+        arguments: args
+      }
+    }
+  }
 }
+
+const byUrl = groupBy((link: Link) => link.hgref.graph)
+

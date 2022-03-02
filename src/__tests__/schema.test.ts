@@ -148,6 +148,61 @@ describe("Schema", () => {
       HgRef.rootDirective("https://specs.apollo.dev/link/v0.3")
     );
   });
+
+  it.only("can append defs", () => {
+    const schema = Schema.from(
+      parse(`
+    extend schema
+        @id(url: "https://specs/me")
+    `),
+      base
+    );
+    const other = Schema.from(
+      parse(`
+    extend schema @id(url: "https://my/library")
+
+    type User {
+      id: ID!
+    }
+
+    directive @mine on SCHEMA
+    `),
+      base
+    );
+    const third = Schema.from(
+      parse(`
+      extend schema
+      @id(url: "https://the/third")
+      @link(url: "https://my/library", import: "ID")
+
+      type Product {
+        id: ID!
+      }
+      `),
+      base
+    );
+    const withDefs = schema.append([
+      ...other.definitions(HgRef.named("User")),
+      ...other.definitions(HgRef.directive("mine")),
+      ...third.definitions(HgRef.named("Product")),
+    ]);
+    expect(schema.scope.linker).toBeTruthy();
+    expect(withDefs.document).toMatchInlineSnapshot(`
+      [synth] extend schema @id(url: "https://specs/me")
+
+      extend schema @link(url: "https://my/library") @link(url: "https://the/third")
+
+      type library__User {
+        id: library__ID!
+      }
+
+      directive @library__mine on SCHEMA
+
+      type third__Product {
+        id: library__ID!
+      }
+    `);
+  });
 });
 
 function ref(name: string): Locatable {

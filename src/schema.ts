@@ -1,7 +1,7 @@
 import recall from '@protoplasm/recall'
-import { ASTNode, DirectiveNode, DocumentNode, Kind } from 'graphql'
+import { ASTNode, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { deepRefs, refsInDefs, byRef, De, Defs, isLocatable, Locatable, fill } from './de'
+import { deepRefs, refsInDefs, byRef, De, Defs, isLocatable, Locatable, fill, Def } from './de'
 import bootstrap, { id, Link, Linker } from './bootstrap'
 import directives from './directives'
 import { HgRef } from './hgref'
@@ -43,11 +43,15 @@ export class Schema implements Defs {
         }
         const self = selfIn(scope, directives(this.document))
         if (self) {
-          scope.add(self, '')
           scope.add({
             ...self,
+            name: ''
+          })
+          scope.add({
+            ...self,
+            name: '@' + self.name,
             hgref: HgRef.rootDirective(self.hgref.graph)
-          }, '@' + self.name)
+          })
         }
       })
   }
@@ -78,11 +82,18 @@ export class Schema implements Defs {
 
   append(defs: Defs): Schema {
     const scope = this.scope.child(including(refsInDefs(defs)))
-
+    console.log('synthScope =', [...scope])
+    const directives = [...scope.linker?.synthesize(scope) ?? []]
+    const header: SchemaExtensionNode[] = directives
+      ? [{
+        kind: Kind.SCHEMA_EXTENSION,
+        directives
+      }] : []
     return Schema.from({
       kind: Kind.DOCUMENT,
       definitions: [
         ...this.definitions(),
+        ...header,       
         ...scope.renormalizeDefs(defs)
       ]
     }, scope.parent?.parent)

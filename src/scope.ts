@@ -1,6 +1,6 @@
 import recall, { use } from '@protoplasm/recall'
 import { ASTNode, Kind, visit } from 'graphql'
-import { type Link } from './bootstrap'
+import { Linker, type Link } from './bootstrap'
 import { De, Def, Defs, isLocatable, isLocated, Locatable, Located } from './de'
 import HgRef from './hgref'
 import { isAst, hasName } from './is'
@@ -11,21 +11,22 @@ import ScopeMap from './scope-map'
 /**
  * Scopes link local names to global graph locations.
  */
-export interface IScope {
+export interface IScope extends Iterable<Link> {
   readonly url?: LinkUrl
   readonly self?: Link
   readonly parent?: IScope
-
+  readonly linker?: Linker
+  
   own(name: string): Link | undefined
   has(name: string): boolean
   lookup(name: string): Link | undefined
   visible(): Iterable<[string, Link]>
   entries(): Iterable<[string, Link]>
   locate(node: Locatable): HgRef
-  rLocate(node: Located): [string | null, string] | undefined  
+  rLocate(node: Located): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
   renormalizeDefs(defs: Defs): Iterable<Def>
-  child(fn: (scope: IScopeMut) => void): Readonly<IScope> 
+  child(fn: (scope: IScopeMut) => void): Readonly<IScope>  
 }
 
 export interface IScopeMut extends IScope {
@@ -74,7 +75,7 @@ export class Scope implements IScope {
     if (bareName) return [null, bareName]
 
     const prefix = this.reverse.lookup(node.hgref.setName(''))
-    if (prefix) return [prefix, scopeNameFor(node, node.hgref.name)]
+    if (prefix) return [prefix, node.hgref.name]
 
     return
   }
@@ -102,6 +103,7 @@ export class Scope implements IScope {
         if (!hasName(node) || !isLocated(node)) return
         const path = self.rLocate(node)
         if (!path) return null
+        console.log(path, toPrefixed(path))
         return {
           ...node,
           name: { ...node.name, value: toPrefixed(path) }
@@ -113,6 +115,10 @@ export class Scope implements IScope {
   *renormalizeDefs(defs: Defs): Iterable<Def> {
     for (const def of defs)
       yield this.renormalize(def)
+  }
+
+  *[Symbol.iterator]() {
+    for (const ent of this.entries()) yield ent[1]
   }
 
   own(name: string) { return this.names.own(name) }
@@ -132,6 +138,13 @@ export class Scope implements IScope {
         scope.add(link, name)
       if (fn) fn(scope)
     }, this.parent)
+  }
+
+  get linker() {
+    for (const [_, link] of this.visible()) {
+      if (link.linker) return link.linker
+    }
+    return
   }
 
   //@ts-ignore — accessible via IScopeMut
@@ -165,9 +178,11 @@ export default Scope
  */
 export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
   for (const ref of refs) {
+    console.log('including ref=', ref, 'hasGraph?', ref.hgref.graph)
     const graph = ref.hgref.graph
     if (!graph) continue
     const found = scope.rLocate(ref)
+    console.log('  found?', found)
     if (found) continue
     for (const name of graph.suggestNames()) {
       if (scope.has(name)) continue

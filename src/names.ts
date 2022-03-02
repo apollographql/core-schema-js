@@ -9,9 +9,12 @@ export function getPrefix(name: string, sep = '__'): LinkPath {
 }
 
 export function toPrefixed(path: LinkPath): string {
-  if (path[0] == null) return path[1]
-  return path[0] + '__' + path[1]
+  if (path[0] == null) return unAt(path[1])
+  return path[0] + '__' + unAt(path[1])
 }
+
+const AT = '@'.charCodeAt(0)
+const unAt = (val: string) => val.charCodeAt(0) === AT ? val.slice(1) : val
 
 export function scopeNameFor(
   node: { kind: ASTNode["kind"], name?: NameNode },

@@ -1,4 +1,4 @@
-import type { ASTNode } from 'graphql'
+import { type ASTNode, print as printNode } from 'graphql'
 import { hasRef } from '../de'
 
 /**
@@ -7,9 +7,9 @@ import { hasRef } from '../de'
  * This keeps snapshots more readable, as AST nodes typically have a whole
  * subtree attached to them.
  */
-export const test = (val: any) => !!val?.loc
+export const test = (val: any) => typeof val.kind === 'string'
 export const print = (val: ASTNode) => {
-  if (!val.loc) return val
+  if (!val.loc) return '[synth] ' + printNode(val)
   const {loc} = val
   const {line} = loc.startToken
   let start = loc.startToken
