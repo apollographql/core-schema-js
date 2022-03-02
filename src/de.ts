@@ -16,7 +16,7 @@ export const ErrNoDefinition = (hgref: HgRef, ...nodes: ASTNode[]) =>
  * A detatched (or denormalized) AST node. Detached nodes have an `hgref: HgRef`
  * property which holds their location within the global graph. This makes them
  * easier to move them between documents, which may have different sets of `@link`
- * directives (and thus different namespaces). 
+ * directives (and thus different namespaces).
  */
 export type De<T> =
   T extends (infer E)[]
@@ -27,7 +27,7 @@ export type De<T> =
       [K in keyof T]:
         K extends 'kind' | 'loc'
           ? T[K]
-          :              
+          :
         De<T[K]>
     }
     :
@@ -38,7 +38,7 @@ export type De<T> =
         :
       De<T[K]>
     }
-    :    
+    :
   T
 
 export type Def = De<DefinitionNode>
@@ -59,13 +59,13 @@ export const byRef = groupBy(<T extends { hgref?: HgRef }>(node: T) => node.hgre
 
 /**
  * Complete `source` definitions with definitions from `atlas`.
- * 
+ *
  * Returns the set of defs to be added.
- * 
+ *
  * Reports ErrNoDefinition for any dangling references.
- * 
- * @param defs 
- * @returns 
+ *
+ * @param defs
+ * @returns
  */
 export function fill(source: Defs, atlas?: Defs): Defs {
   const notDefined = new Map<HgRef, Locatable[]>()
@@ -91,16 +91,16 @@ export function fill(source: Defs, atlas?: Defs): Defs {
     notDefined.delete(ref)
     if (failed.has(ref)) continue
     if (added.has(ref)) continue
-    const defs = atlasDefs?.get(ref)    
+    const defs = atlasDefs?.get(ref)
     if (!defs) {
       report(ErrNoDefinition(ref, ...nodes))
       failed.add(ref)
     } else {
-      ingest(defs)      
+      ingest(defs)
       added.add(ref)
       fill.push(...defs)
     }
-  }  
+  }
 
   return fill
 }
@@ -146,7 +146,7 @@ export const hasRef = (o?: any): o is { hgref: HgRef } =>
 
 const LOCATABLE_KINDS = new Set([
   ...Object.values(Kind)
-    .filter(k => k.endsWith('Definition') || k.endsWith('Extension'))    
+    .filter(k => k.endsWith('Definition') || k.endsWith('Extension'))
     .filter(k => !k.startsWith('Field'))
     .filter(k => k !== 'OperationDefinition' && k !== 'FragmentDefinition'),
   Kind.DIRECTIVE,

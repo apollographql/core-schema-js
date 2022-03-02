@@ -1,5 +1,5 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode } from 'graphql'
+import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
@@ -17,7 +17,7 @@ const LINK_SPECS = new Map([
 
 const Url = new GraphQLScalarType({
   name: 'Url',
-  parseValue: val => val,
+  parseValue: val => val,  
   parseLiteral(node): Maybe<LinkUrl> {
     if (node.kind === 'StringValue')
       return LinkUrl.parse(node.value)
@@ -38,9 +38,17 @@ const Name = new GraphQLScalarType({
 const Imports = new GraphQLScalarType({
   name: 'Imports',
   parseValue: val => val,
-  parseLiteral(node): Maybe<ImportNode[]> {
-    if (node.kind !== 'StringValue') return
-    return ImportsParser.fromString(node.value)
+  parseLiteral(value: ValueNode): Maybe<ImportNode[]> {
+    if (value.kind === Kind.LIST) {
+      const text = value.values.map(value => {
+        if (value.kind === Kind.STRING)
+          return value.value
+        return undefined
+      }).filter(Boolean).join(' ')
+      return ImportsParser.fromString(text)
+    }
+    if (value.kind !== Kind.STRING) return
+    return ImportsParser.fromString(value.value)
   }
 })
 

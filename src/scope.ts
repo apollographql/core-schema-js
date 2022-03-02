@@ -102,7 +102,7 @@ export class Scope implements IScope {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
         if (!hasName(node) || !isLocated(node)) return
         const path = self.rLocate(node)
-        if (!path) return null
+        if (!path) return
         return {
           ...node,
           name: { ...node.name, value: toPrefixed(path) }
