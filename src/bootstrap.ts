@@ -15,6 +15,14 @@ const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/link/v0.3', 'url'],
 ])
 
+export const LINK_DIRECTIVES = new Set(
+  [...LINK_SPECS.keys()].map(url => HgRef.rootDirective(url))
+)
+
+export const LINK_SPEC_URLS = new Set(
+  [...LINK_DIRECTIVES].map(ref => ref.graph)
+)
+
 const Url = new GraphQLScalarType({
   name: 'Url',
   parseValue: val => val,  
@@ -163,8 +171,15 @@ export class Linker {
   }
 
   *synthesize(links: Iterable<Link>): Iterable<ConstDirectiveNode> {
-    for (const [url, linksForUrl] of byUrl(links)) {
+    const linksByUrl = byUrl(links)
+    const urls = [...linksByUrl.keys()].sort(
+      (a, b) =>
+        (LINK_SPEC_URLS.has(b) ? 1 : 0) -
+        (LINK_SPEC_URLS.has(a) ? 1 : 0)
+    )
+    for (const url of urls) {
       if (!url) continue
+      const linksForUrl = linksByUrl.get(url)!
       let alias: string = ''
       const imports: [string, string][] = []
       for (const link of linksForUrl) {

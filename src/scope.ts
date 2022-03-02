@@ -16,7 +16,8 @@ export interface IScope extends Iterable<Link> {
   readonly self?: Link
   readonly parent?: IScope
   readonly linker?: Linker
-  
+  readonly flat: IScope
+
   own(name: string): Link | undefined
   has(name: string): boolean
   lookup(name: string): Link | undefined
@@ -26,11 +27,11 @@ export interface IScope extends Iterable<Link> {
   rLocate(node: Located): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
   renormalizeDefs(defs: Defs): Iterable<Def>
-  child(fn: (scope: IScopeMut) => void): Readonly<IScope>  
+  child(fn: (scope: IScopeMut) => void): Readonly<IScope>
 }
 
 export interface IScopeMut extends IScope {
-  add(link: Link, name?: string): void
+  add(link: Link): void
 }
 
 export class Scope implements IScope {
@@ -51,7 +52,7 @@ export class Scope implements IScope {
       return HgRef.schema(this.url)
     }
     const [ prefix, name ] = getPrefix(node.name?.value ?? '')
-    
+
     if (prefix) {
       const found = this.lookup(prefix)
       if (found) return HgRef.canon(scopeNameFor(node, name), found.hgref.graph)
@@ -61,7 +62,7 @@ export class Scope implements IScope {
     // treat the entire name as a local name
     //
     // this means that prefixed__Names will be interpreted
-    // as local names if and only if the prefix has not been `@link`ed 
+    // as local names if and only if the prefix has not been `@link`ed
     //
     // this allows for universality — it is always possible to represent
     // any api with a core schema by appropriately selecting link names
@@ -79,7 +80,7 @@ export class Scope implements IScope {
 
     return
   }
-  
+
   @use(recall)
   denormalize<T extends ASTNode>(node: T): De<T> {
     const self = this
@@ -120,6 +121,13 @@ export class Scope implements IScope {
     for (const ent of this.entries()) yield ent[1]
   }
 
+  get flat() {
+    return Scope.create(scope => {
+      for (const [_, link] of this.visible())
+        scope.add(link)
+    })
+  }
+
   own(name: string) { return this.names.own(name) }
   has(name: string) { return this.names.has(name) }
   hasOwn(name: string) { return this.names.hasOwn(name) }
@@ -133,8 +141,8 @@ export class Scope implements IScope {
 
   clone(fn?: (scope: IScopeMut) => void): IScope {
     return Scope.create(scope => {
-      for (const [name, link] of this.entries())
-        scope.add(link, name)
+      for (const [_, link] of this.entries())
+        scope.add(link)
       if (fn) fn(scope)
     }, this.parent)
   }
@@ -147,9 +155,9 @@ export class Scope implements IScope {
   }
 
   //@ts-ignore — accessible via IScopeMut
-  private add(link: Link, name = link.name): void {
-    this.names.set(name, link)
-    this.reverse.set(link.hgref, name)
+  private add(link: Link): void {
+    this.names.set(link.name, link)
+    this.reverse.set(link.hgref, link.name)
   }
 
   private readonly names: ScopeMap<string, Link> = new ScopeMap(this.parent?.names)
@@ -163,17 +171,17 @@ export default Scope
 /**
  * Return a Scope mutation which includes links to the provided
  * refs.
- * 
+ *
  * This can be used with scope.child, scope.clone, or Scope.create:
- * 
+ *
  * ```typescript
  * const scope = Scope.create(including(someRefs))
  * ```
- * 
+ *
  * The resulting Scope will be able to rLocate all refs
  * provided.
- * 
- * @param refs 
+ *
+ * @param refs
  */
 export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
   for (const ref of refs) {

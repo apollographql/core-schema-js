@@ -2,10 +2,11 @@ import recall from '@protoplasm/recall'
 import { DirectiveNode, DocumentNode, Kind, SchemaExtensionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { refsInDefs, byRef, Defs, isLocatable, Locatable, fill } from './de'
-import { id, Link, Linker } from './bootstrap'
+import { id, Link, Linker, LINK_DIRECTIVES } from './bootstrap'
 import directives from './directives'
 import { HgRef } from './hgref'
 import Scope, { including, IScope } from './scope'
+import { isAst } from './is'
 
 export class Schema implements Defs {
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
@@ -59,14 +60,13 @@ export class Schema implements Defs {
     return this.scope.locate(node)
   }
 
-  compile(atlas?: Defs): Schema {
+  fill(atlas?: Defs): Schema {
     return this.append(fill(this, atlas))
   }
 
-  append(defs: Defs): Schema {
-    const scope = this.scope.child(including(refsInDefs(defs)))
-    const directives = [...scope.linker?.synthesize(scope) ?? []]
-    const header: SchemaExtensionNode[] = directives
+  toCore(): Schema {
+    const directives = [...this.scope.linker?.synthesize(this.scope.flat) ?? []]
+    const header: SchemaExtensionNode[] = directives.length
       ? [{
         kind: Kind.SCHEMA_EXTENSION,
         directives
@@ -74,8 +74,25 @@ export class Schema implements Defs {
     return Schema.from({
       kind: Kind.DOCUMENT,
       definitions: [
-        ...this.definitions(),
-        ...header,       
+        ...header,
+        ...pruneLinks(this),
+      ]
+    })
+  }
+
+  append(defs: Defs): Schema {
+    const scope = this.scope.child(including(refsInDefs(defs)))
+    const directives = [...scope.linker?.synthesize(scope) ?? []]
+    const header: SchemaExtensionNode[] = directives.length
+      ? [{
+        kind: Kind.SCHEMA_EXTENSION,
+        directives
+      }] : []
+    return Schema.from({
+      kind: Kind.DOCUMENT,
+      definitions: [
+        ...this,
+        ...header,
         ...scope.renormalizeDefs(defs)
       ]
     }, scope.parent?.parent)
@@ -98,3 +115,17 @@ const selfIn = recall(
     return null
   }
 )
+
+function *pruneLinks(defs: Defs) {
+  for (const def of defs) {
+    if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
+      if (!def.directives) yield def
+      const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has(dir.hgref))
+      if (!directives?.length && !def.operationTypes?.length)
+        continue
+      yield { ...def, directives }
+      continue
+    }
+    yield def
+  }
+}
