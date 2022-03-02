@@ -1,8 +1,8 @@
 import recall from '@protoplasm/recall'
-import { ASTNode, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode } from 'graphql'
+import { DirectiveNode, DocumentNode, Kind, SchemaExtensionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { deepRefs, refsInDefs, byRef, De, Defs, isLocatable, Locatable, fill, Def } from './de'
-import bootstrap, { id, Link, Linker } from './bootstrap'
+import { refsInDefs, byRef, Defs, isLocatable, Locatable, fill } from './de'
+import { id, Link, Linker } from './bootstrap'
 import directives from './directives'
 import { HgRef } from './hgref'
 import Scope, { including, IScope } from './scope'
@@ -13,23 +13,6 @@ export class Schema implements Defs {
       return new this(document, frame.scope)
     return new this(document, frame)
   }
-
-  // static compile(defs: Defs, local: IScope = Scope.EMPTY) {
-  //   // const scope = scope.
-    
-  //   local.child(
-  //     scope => {
-  //       for (const def of defs)
-  //         ingest(def)
-        
-  //       function ingest(node: De<ASTNode>) {
-  //         for (const ref of deepRefs(node)) {
-            
-  //         }
-  //       }
-  //     }
-  //   )
-  // }
 
   public get scope(): IScope {
     return this.frame.child(
@@ -76,13 +59,12 @@ export class Schema implements Defs {
     return this.scope.locate(node)
   }
 
-  // compile(atlas?: Defs): Schema {
-  //   const defs = fill(this, atlas)
-  // }
+  compile(atlas?: Defs): Schema {
+    return this.append(fill(this, atlas))
+  }
 
   append(defs: Defs): Schema {
     const scope = this.scope.child(including(refsInDefs(defs)))
-    console.log('synthScope =', [...scope])
     const directives = [...scope.linker?.synthesize(scope) ?? []]
     const header: SchemaExtensionNode[] = directives
       ? [{
@@ -106,16 +88,6 @@ export class Schema implements Defs {
 }
 
 export default Schema
-
-const linkerFor = recall(
-  function linkerFor(scope: IScope, dir: DirectiveNode) {
-    const self = bootstrap(dir)
-    if (self) return self
-    const other = scope.lookup('@' + dir.name.value)
-    if (!other?.via) return
-    return bootstrap(other.via)
-  }
-)
 
 const selfIn = recall(
   function self(scope: IScope, directives: Iterable<DirectiveNode>): Maybe<Link> {

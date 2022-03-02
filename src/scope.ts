@@ -103,7 +103,6 @@ export class Scope implements IScope {
         if (!hasName(node) || !isLocated(node)) return
         const path = self.rLocate(node)
         if (!path) return null
-        console.log(path, toPrefixed(path))
         return {
           ...node,
           name: { ...node.name, value: toPrefixed(path) }
@@ -178,11 +177,9 @@ export default Scope
  */
 export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
   for (const ref of refs) {
-    console.log('including ref=', ref, 'hasGraph?', ref.hgref.graph)
     const graph = ref.hgref.graph
     if (!graph) continue
     const found = scope.rLocate(ref)
-    console.log('  found?', found)
     if (found) continue
     for (const name of graph.suggestNames()) {
       if (scope.has(name)) continue

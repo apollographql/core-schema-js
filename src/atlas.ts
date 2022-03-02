@@ -7,7 +7,7 @@ interface IAtlas extends Defs {
 
 }
 
-class Atlas implements IAtlas {
+export class Atlas implements IAtlas {
   @use(recall)
   static fromSchemas(...schemas: Schema[]): IAtlas {
     return new this(schemas)

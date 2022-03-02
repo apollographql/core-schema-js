@@ -149,7 +149,7 @@ describe("Schema", () => {
     );
   });
 
-  it.only("can append defs", () => {
+  it("can append defs", () => {
     const schema = Schema.from(
       parse(`
     extend schema

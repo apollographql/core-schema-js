@@ -1,5 +1,5 @@
-import recall, { report } from '@protoplasm/recall'
-import { ASTNode, DefinitionNode, DirectiveNode, ExecutableDefinitionNode, Kind, NamedTypeNode } from 'graphql'
+import { report } from '@protoplasm/recall'
+import { ASTNode, DefinitionNode, DirectiveNode, Kind, NamedTypeNode } from 'graphql'
 import { groupBy } from './each'
 import err from './error'
 import HgRef from './hgref'
@@ -53,32 +53,9 @@ export type Located = Locatable & { hgref: HgRef }
 
 
 /**
- * group defs by hgref
+ * group detached nodes (or anything with an 'hgref' really )
  */
-// export const byRef = recall(
-//   function byRef<T extends { hgref?: HgRef }>(...sources: Iterable<T>[]): Readonly<Map<HgRef, Iterable<T>>> {
-//     if (sources.length === 0) return Object.freeze(new Map)
-//     if (sources.length > 1) {
-//       const defs = new Map<HgRef, readonly T[]>()
-//       for (const src of sources) for (const ent of byRef(src))
-//         defs.set(ent[0],
-//           Object.freeze((defs.get(ent[0]) ?? []).concat(ent[1] as T[])))
-//       return Object.freeze(defs)
-//     }
-//     const [source] = sources
-//     const defs = new Map<HgRef, T[]>()
-//     for (const def of source) {
-//       const {hgref} = def
-//       if (!hgref) continue
-//       const existing = defs.get(hgref)
-//       if (existing) existing.push(def)
-//       else defs.set(hgref, [def])
-//     }
-//     for (const ary of defs.values()) { Object.freeze(ary) }
-//     return Object.freeze(defs)
-//   }
-// )
-export const byRef = groupBy((node: { hgref?: HgRef }) => node.hgref)
+export const byRef = groupBy(<T extends { hgref?: HgRef }>(node: T) => node.hgref)
 
 /**
  * Complete `source` definitions with definitions from `atlas`.
