@@ -1,8 +1,8 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { DirectiveNode, DocumentNode, Kind, SchemaExtensionNode } from 'graphql'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { refsIn, byRef, Defs, isLocatable, Locatable, fill, De } from './de'
-import { id, Link, Linker, LINK_DIRECTIVES } from './bootstrap'
+import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
 import { HgRef } from './hgref'
 import Scope, { including, IScope } from './scope'
@@ -113,6 +113,10 @@ export class Schema implements Defs {
     })
   }
 
+  print(): string {
+    return print(this.compile().document)
+  }
+
   protected constructor(
     public readonly document: DocumentNode,
     public readonly frame: IScope,
@@ -131,12 +135,12 @@ const selfIn = recall(
   }
 )
 
-function *pruneLinks(defs: Defs): Defs {
+export function *pruneLinks(defs: Defs): Defs {
   for (const def of defs) {
     if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
       if (!def.directives) yield def
       const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has(dir.hgref))
-      if (!directives?.length && !def.operationTypes?.length)
+      if (!directives?.length && !def.operationTypes?.length && !(def as SchemaDefinitionNode).description)
         continue
       yield { ...def, directives }
       continue

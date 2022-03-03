@@ -1,4 +1,4 @@
-import { type ASTNode, print as printNode } from 'graphql'
+import { type ASTNode, print as printNode, Location, TokenKind } from 'graphql'
 import { hasRef } from '../de'
 
 /**
@@ -13,18 +13,22 @@ export const print = (val: ASTNode) => {
     ? `<${val.hgref?.toString() ?? ''}>`
     : ''
   if (!val.loc) return `${hgref}[+] ${printNode(val)}`
-  const {loc} = val
-  const {line} = loc.startToken
-  let start = loc.startToken
-  let end = loc.startToken
+  const loc = skipDescription(val.loc)
+  const {line} = loc
+  let start = loc
+  let end = loc
   while (start.prev && start.prev.line === line)
     start = start.prev
   while (end.next && end.next.line === line)
     end = end.next
   const text = val.loc.source.body.substring(start.start, end.end)  
-  const col = loc.startToken.start - start.start
+  const col = loc.start - start.start
   const head = text.substring(0, col)
   const tail = text.substring(col)
   return `${hgref}[${val.loc.source.name}] ${head}👉${tail}`
 }
 
+function skipDescription(loc: Location) {
+  if (loc.startToken.kind === TokenKind.BLOCK_STRING) return loc.startToken.next!
+  return loc.startToken
+}

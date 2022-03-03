@@ -1,4 +1,4 @@
-import { DirectiveNode, Location, NamedTypeNode, Source, TokenKind } from 'graphql'
+import { ConstDirectiveNode, DirectiveNode, Kind, Location, NamedTypeNode, Source, TokenKind } from 'graphql'
 import { Parser } from 'graphql/language/parser'
 
 export type ImportTermNode = DirectiveNode | NamedTypeNode
@@ -63,7 +63,16 @@ export class ImportsParser extends Parser {
 
   parseImportElement() {
     if (this.peek(TokenKind.AT))
-      return this.parseDirective(true)
+      return this.parseDirectiveName()
     return this.parseNamedType()
+  }
+
+  parseDirectiveName() {
+    const start = this._lexer.token
+    this.expectToken(TokenKind.AT)
+    return this.node<ConstDirectiveNode>(start, {
+      kind: Kind.DIRECTIVE,
+      name: this.parseName()
+    })
   }
 }

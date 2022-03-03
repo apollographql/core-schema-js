@@ -1,6 +1,6 @@
 import recall, { use } from '@protoplasm/recall'
 import { ASTNode, Kind, visit } from 'graphql'
-import { Linker, type Link } from './bootstrap'
+import { Linker, type Link } from './linker'
 import { De, Def, Defs, hasRef, isLocatable, isLocated, Locatable, Located } from './de'
 import HgRef from './hgref'
 import { isAst, hasName } from './is'
@@ -23,6 +23,7 @@ export interface IScope extends Iterable<Link> {
   lookup(name: string): Link | undefined
   visible(): Iterable<[string, Link]>
   entries(): Iterable<[string, Link]>
+  header(): Defs
   locate(node: Locatable): HgRef
   rLocate(node: Located): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
@@ -72,6 +73,14 @@ export class Scope implements IScope {
     // with `@link(as:)` or `@link(import:)`, even if the desired
     // api contains double-underscored names (odd choice, but you do you)
     return this.lookup(scopeNameFor(node))?.hgref ?? HgRef.canon(scopeNameFor(node), this.url)
+  }
+
+  header(): Defs {
+    const directives = [...this.linker?.synthesize(this) ?? []]
+    if (directives.length) {
+      return [{ kind: Kind.SCHEMA_EXTENSION, directives, hgref: HgRef.schema(this.url) }]
+    }
+    return []
   }
 
   rLocate(node: Located): [string | null, string] | undefined {

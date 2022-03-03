@@ -13,7 +13,8 @@ module.exports = {
     ...defaults.snapshotSerializers,
     './src/snapshot-serializers/ast.ts',
     './src/snapshot-serializers/raw.ts',
-    './src/snapshot-serializers/hgref.ts'
+    './src/snapshot-serializers/hgref.ts',
+    './src/snapshot-serializers/iterable.ts',
   ],
   moduleFileExtensions: [...defaults.moduleFileExtensions, "ts", "tsx"],
   // moduleNameMapper: {

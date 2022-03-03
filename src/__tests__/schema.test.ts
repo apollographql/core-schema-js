@@ -36,15 +36,15 @@ describe("Schema", () => {
       }
     `);
 
-    expect([...schema]).toMatchInlineSnapshot(`
-      Array [
+    expect(schema).toMatchInlineSnapshot(`
+      Schema [
         <>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         <#User>[example.graphql] 👉type User @inaccessible {,
       ]
     `);
 
-    expect([...schema.scope]).toMatchInlineSnapshot(`
-      Array [
+    expect(schema.scope).toMatchInlineSnapshot(`
+      Scope [
         Object {
           "hgref": HgRef <https://specs.apollo.dev/federation/v1.0>,
           "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
@@ -72,8 +72,8 @@ describe("Schema", () => {
       ]
     `);
 
-    expect([...schema.refs]).toMatchInlineSnapshot(`
-      Array [
+    expect(schema.refs).toMatchInlineSnapshot(`
+      Object [
         <>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
@@ -169,8 +169,8 @@ describe("Schema", () => {
     expect(schema.locate(ref("@myDirective"))).toBe(
       HgRef.directive("myDirective", "https://specs/me")
     );
-    expect([...schema]).toMatchInlineSnapshot(`
-      Array [
+    expect(schema).toMatchInlineSnapshot(`
+      Schema [
         <https://specs/me>[schema with id] 👉@id(url: "https://specs/me"),
         <https://specs/me#@>[schema with id] 👉directive @me repeatable on SCHEMA,
         <https://specs/me#Something>[schema with id] 👉scalar Something @key,
@@ -238,8 +238,8 @@ describe("Schema", () => {
       `)
     );
 
-    expect([...atlas]).toMatchInlineSnapshot(`
-      Array [
+    expect(atlas).toMatchInlineSnapshot(`
+      Atlas [
         <https://specs.apollo.dev/link/v0.3>[link spec] 👉@id(url: "https://specs.apollo.dev/link/v0.3"),
         <https://specs.apollo.dev/link/v0.3#@>[link spec] 👉directive @link(url: Url!, as: Name, import: Imports),
         <https://specs.apollo.dev/link/v0.3#Url>[link spec] 👉scalar Url,

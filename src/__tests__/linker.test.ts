@@ -1,16 +1,16 @@
-import { DirectiveNode, parse, print } from "graphql";
-import { Linker } from "../bootstrap";
+import { DirectiveNode, parse } from "graphql";
+import { Linker } from "../linker";
 import HgRef from "../hgref";
 
 describe("Linker", () => {
   describe("synthesize", () => {
     const linker = Linker.bootstrap(
       dir('@link(url: "https://specs.apollo.dev/link/v0.3")')
-    );
+    )!;
 
     it("does not reference a schema by name unless it has a link", () => {
-      expect([
-        ...linker.synthesize([
+      expect(
+        linker.synthesize([
           {
             name: "@key",
             hgref: HgRef.directive(
@@ -19,14 +19,14 @@ describe("Linker", () => {
             ),
           },
         ]),
-      ]).toMatchInlineSnapshot(`
-        Array [
+      ).toMatchInlineSnapshot(`
+        Iterable [
           <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "", import: "@key"),
         ]
       `);
 
-      expect([
-        ...linker.synthesize([
+      expect(
+        linker.synthesize([
           {
             name: "@key",
             hgref: HgRef.directive(
@@ -39,15 +39,15 @@ describe("Linker", () => {
             name: "federation",
             hgref: HgRef.schema("https://specs.apollo.dev/federation"),
           },
-        ]),
-      ]).toMatchInlineSnapshot(`
-        Array [
+        ])
+      ).toMatchInlineSnapshot(`
+        Iterable [
           <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", import: "@key"),
         ]
       `);
 
-      expect([
-        ...linker.synthesize([
+      expect(
+        linker.synthesize([
           {
             name: "@key",
             hgref: HgRef.directive(
@@ -61,16 +61,16 @@ describe("Linker", () => {
             hgref: HgRef.schema("https://specs.apollo.dev/federation"),
           },
         ]),
-      ]).toMatchInlineSnapshot(`
-        Array [
+      ).toMatchInlineSnapshot(`
+        Iterable [
           <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: "@key"),
         ]
       `);
     });
 
     it("collects imports", () => {
-      expect([
-        ...linker.synthesize([
+      expect(
+        linker.synthesize([
           {
             name: "@key",
             hgref: HgRef.directive(
@@ -94,8 +94,8 @@ describe("Linker", () => {
             hgref: HgRef.directive("type", "https://specs.apollo.dev/join"),
           },
         ]),
-      ]).toMatchInlineSnapshot(`
-        Array [
+      ).toMatchInlineSnapshot(`
+        Iterable [
           <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: "@key"),
           <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/join", as: "", import: "Graph @joinType: @type"),
         ]
