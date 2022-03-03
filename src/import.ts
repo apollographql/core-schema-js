@@ -55,6 +55,19 @@ export class ImportsParser extends Parser {
         alias: local
       })
     }
+    if (this.peek(TokenKind.PAREN_L)) {
+      this.expectToken(TokenKind.PAREN_L)
+      this.expectKeyword('as')
+      const remote = this.parseImportElement()
+      if (remote.kind !== local.kind)
+        throw new Error('local and remote name must be same kind of reference')
+      this.expectToken(TokenKind.PAREN_R)
+      return this.node<ImportNode>(start, {
+        type: 'Import',
+        element: remote,
+        alias: local
+      })      
+    }
     return this.node<ImportNode>(start, {
       type: 'Import',
       element: local

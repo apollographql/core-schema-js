@@ -188,24 +188,20 @@ describe("Schema", () => {
   });
 
   it("gets definitions for nodes", () => {
-    const schema = Schema.from(
-      parse(`
-      extend schema
-        @id(url: "https://specs/me")
-        @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: "@requires @key @prov: @provides")
-          
-        type User @key(fields: "id") {
-          id: ID!
-        }
-    `),
-      base
-    );
+    const schema = Schema.basic(gql`${"my-schema"}
+      @id(url: "https://specs/me")
+      @link(url: "https://specs.apollo.dev/federation/v2.0",
+            import: "@requires @key @provides (as @prov)")
+        
+      type User @key(fields: "id") {
+        id: ID!
+      }
+    `);
 
     const user = schema.locate(ref("User"));
     expect(schema.definitions(user)).toMatchInlineSnapshot(`
       Array [
-        <https://specs/me#User>[GraphQL request] 👉type User @key(fields: "id") {,
+        <https://specs/me#User>[my-schema] 👉type User @key(fields: "id") {,
       ]
     `);
 
@@ -306,6 +302,38 @@ describe("Schema", () => {
       scalar link__Imports
 
       scalar federation__FieldSet
+    `);
+  });
+
+  it("returns standardized versions", () => {
+    const subgraph = Schema.basic(gql`${"subgraph"}
+      @link(url: "https://specs.apollo.dev/federation/v2.0",
+            import: """
+              @fkey: @key
+              @frequires: @requires
+              @fprovides: @provides
+              @ftag: @tag
+            """)
+
+      type User @fkey(fields: "id") {
+        id: ID! @ftag(name: "hi") @tag(name: "my tag")
+      }
+
+      directive @tag(name: string) on FIELD_DEFINITION
+    `);
+
+    expect(
+      raw(
+        subgraph.standardize("https://specs.apollo.dev/federation/v2.0").print()
+      )
+    ).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/id/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+      type User @federation__key(fields: "id") {
+        id: ID! @federation__tag(name: "hi") @tag(name: "my tag")
+      }
+
+      directive @tag(name: string) on FIELD_DEFINITION
     `);
   });
 });

@@ -8,6 +8,7 @@ import { HgRef } from './hgref'
 import Scope, { including, IScope } from './scope'
 import { isAst } from './is'
 import gql from './gql'
+import LinkUrl from './location'
 export class Schema implements Defs {  
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
     if (frame instanceof Schema)
@@ -73,6 +74,36 @@ export class Schema implements Defs {
 
   locate(node: Locatable): HgRef {
     return this.scope.locate(node)
+  }
+
+  standardize(...urls: (LinkUrl | string)[]) {
+    const graphs = new Set(urls.map(u => LinkUrl.from(u)!))
+    const standard = Scope.create(scope => {
+      for (const graph of graphs) {
+        const {name} = graph
+        if (!name)
+          throw new Error('urls sent to standardize must have names')
+        scope.add({
+          name, hgref: HgRef.schema(graph)
+        })
+      }
+    })
+    const newScope = Scope.create((scope) => {
+      const flat = this.scope.flat
+      for (const link of flat) {
+        if (!graphs.has(link.hgref.graph!)) scope.add(link);
+      }
+      for (const link of standard) scope.add(link);
+    });
+    return Schema.from({
+      kind: Kind.DOCUMENT,
+      definitions: [
+        ...newScope.renormalizeDefs([
+          ...newScope.header(),
+          ...pruneLinks(this)
+        ]),
+      ],
+    });    
   }
 
   compile(atlas?: Defs): Schema {
