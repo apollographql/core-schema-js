@@ -1,6 +1,6 @@
 import recall from "@protoplasm/recall";
-import { Kind, parse, Source } from "graphql";
-import { deepRefs, fill, refsInDefs } from "../de";
+import { parse, Source } from "graphql";
+import { fill, refsIn } from "../de";
 import HgRef from "../hgref";
 import Schema from "../schema";
 
@@ -22,7 +22,9 @@ const base = Schema.from(
 );
 
 const schema = Schema.from(
-  parse(`
+  parse(
+    new Source(
+      `
   extend schema
     @id(url: "https://specs/me")
     @link(url: "https://specs.apollo.dev/federation/v2.0",
@@ -31,7 +33,10 @@ const schema = Schema.from(
     type User @key(fields: "id") {
       id: ID!
     }
-`),
+`,
+      "example"
+    )
+  ),
   base
 );
 
@@ -56,10 +61,10 @@ describe("fill", () => {
       .toMatchInlineSnapshot(`
       Array [
         Array [
-          <https://specs.apollo.dev/federation/v2.0#@key>[GraphQL request] type User 👉@key(fields: "id") {,
+          <https://specs.apollo.dev/federation/v2.0#@key>[example] type User 👉@key(fields: "id") {,
         ],
         Array [
-          <https://specs/me#ID>[GraphQL request] id: 👉ID!,
+          <https://specs/me#ID>[example] id: 👉ID!,
         ],
         Array [
           <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
@@ -93,7 +98,7 @@ describe("refsInDefs", () => {
       base
     );
     const User = schema.definitions(HgRef.named("User"));
-    expect([...refsInDefs(User)]).toMatchInlineSnapshot(`
+    expect([...refsIn(User)]).toMatchInlineSnapshot(`
       Array [
         <#User>[GraphQL request] 👉type User @key(fields: "id") @federation {,
         <https://specs.apollo.dev/federation/v2.0#@key>[GraphQL request] type User 👉@key(fields: "id") @federation {,
@@ -101,6 +106,103 @@ describe("refsInDefs", () => {
         <file:///common#Filter>[GraphQL request] favorites(filter: 👉Filter): [Favorite] @requires(fields: "prefs"),
         <#Favorite>[GraphQL request] favorites(filter: Filter): [👉Favorite] @requires(fields: "prefs"),
         <https://specs.apollo.dev/federation/v2.0#@requires>[GraphQL request] favorites(filter: Filter): [Favorite] 👉@requires(fields: "prefs"),
+      ]
+    `);
+  });
+});
+
+describe("a subgraph test", () => {
+  it("works", () => {
+    const schema = Schema.from(
+      parse(`
+      extend schema
+        @link(url: "https://specs.apollo.dev/link/v0.3")
+        @link(url: "https://specs.apollo.dev/federation/v1.0",
+          import: "@key @requires @provides @external")
+        @link(url: "https://specs.apollo.dev/id/v1.0")
+      
+      type Query {
+        product: Product
+      }
+      
+      type Product @key(fields: "upc") {
+        upc: String!
+        name: String
+      }
+      
+      extend type Product {
+        price: Int
+      }
+      
+      directive @key(fields: federation__FieldSet!) repeatable on OBJECT
+      
+      scalar federation__FieldSet
+    `)
+    );
+    expect([...refsIn(schema)]).toMatchInlineSnapshot(`
+      Array [
+        <>[GraphQL request] 👉extend schema,
+        <https://specs.apollo.dev/link/v0.3#@>[GraphQL request] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+        <https://specs.apollo.dev/link/v0.3#@>[GraphQL request] 👉@link(url: "https://specs.apollo.dev/federation/v1.0",
+        <https://specs.apollo.dev/link/v0.3#@>[GraphQL request] 👉@link(url: "https://specs.apollo.dev/id/v1.0"),
+        <#Query>[GraphQL request] 👉type Query {,
+        <#Product>[GraphQL request] product: 👉Product,
+        <#Product>[GraphQL request] 👉type Product @key(fields: "upc") {,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type Product 👉@key(fields: "upc") {,
+        <#String>[GraphQL request] upc: 👉String!,
+        <#String>[GraphQL request] name: 👉String,
+        <#Product>[GraphQL request] 👉extend type Product {,
+        <#Int>[GraphQL request] price: 👉Int,
+        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] 👉directive @key(fields: federation__FieldSet!) repeatable on OBJECT,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[GraphQL request] directive @key(fields: 👉federation__FieldSet!) repeatable on OBJECT,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[GraphQL request] 👉scalar federation__FieldSet,
+      ]
+    `);
+
+    const LINK = Schema.from(
+      parse(
+        new Source(
+          `
+    extend schema @id(url: "https://specs.apollo.dev/link/v0.3")
+  
+    directive @link(url: Url!, as: Name, import: Imports)
+      repeatable on SCHEMA
+  
+    scalar Url
+    scalar Name
+    scalar Imports
+    `,
+          "builtin/link/v0.3.graphql"
+        )
+      ),
+      base
+    );
+
+    const compile = recall(() => fill(schema, LINK));
+    expect([...compile()]).toMatchInlineSnapshot(`
+      Array [
+        <https://specs.apollo.dev/link/v0.3#@>[builtin/link/v0.3.graphql] 👉directive @link(url: Url!, as: Name, import: Imports),
+        <https://specs.apollo.dev/link/v0.3#Url>[builtin/link/v0.3.graphql] 👉scalar Url,
+        <https://specs.apollo.dev/link/v0.3#Name>[builtin/link/v0.3.graphql] 👉scalar Name,
+        <https://specs.apollo.dev/link/v0.3#Imports>[builtin/link/v0.3.graphql] 👉scalar Imports,
+      ]
+    `);
+
+    expect(
+      [
+        ...recall(() => fill(schema, LINK))
+          .getResult()
+          .errors(),
+      ].map((x) => (x as any).nodes)
+    ).toMatchInlineSnapshot(`
+      Array [
+        Array [
+          <#String>[GraphQL request] upc: 👉String!,
+          <#String>[GraphQL request] name: 👉String,
+        ],
+        Array [
+          <#Int>[GraphQL request] price: 👉Int,
+        ],
       ]
     `);
   });

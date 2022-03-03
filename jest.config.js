@@ -11,7 +11,8 @@ module.exports = {
   ],
   snapshotSerializers: [
     ...defaults.snapshotSerializers,
-    './src/snapshot-serializers/ast.ts'
+    './src/snapshot-serializers/ast.ts',
+    './src/snapshot-serializers/raw.ts'
   ],
   moduleFileExtensions: [...defaults.moduleFileExtensions, "ts", "tsx"],
   // moduleNameMapper: {

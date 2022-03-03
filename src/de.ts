@@ -1,4 +1,4 @@
-import { report } from '@protoplasm/recall'
+import { replay, report } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, Kind, NamedTypeNode } from 'graphql'
 import { groupBy } from './each'
 import err from './error'
@@ -75,7 +75,7 @@ export function fill(source: Defs, atlas?: Defs): Defs {
   const atlasDefs = atlas ? byRef(atlas) : null
 
   const ingest = (defs: Defs) => {
-    for (const ref of refsInDefs(defs)) {
+    for (const ref of refsIn(defs)) {
       const defs = byRef(source).get(ref.hgref)
       if (!defs && !added.has(ref.hgref))
         if (notDefined.has(ref.hgref))
@@ -105,17 +105,19 @@ export function fill(source: Defs, atlas?: Defs): Defs {
   return fill
 }
 
-export function *refsInDefs(defs: Defs): Iterable<Located> {
+export function *refsIn(defs: Defs | Iterable<ASTNode>): Iterable<Located> {
   for (const def of defs)
     yield* deepRefs(def)
 }
 
-export function *deepRefs(root: ASTNode | Iterable<ASTNode>): Iterable<Located> {
-  if (isLocatable(root) && hasRef(root)) yield root
-  for (const child of children(root)) {
-    if (isAst(child)) yield *deepRefs(child)
+export const deepRefs: (root: ASTNode | ASTNode[]) => Iterable<Located> = replay(
+  function *(root: ASTNode | Iterable<ASTNode>) {
+    if (isLocatable(root) && hasRef(root)) yield root
+    for (const child of children(root)) {
+      if (isAst(child)) yield *deepRefs(child)
+    }
   }
-}
+)
 
 type ChildOf<T> =
   T extends (infer E)[]

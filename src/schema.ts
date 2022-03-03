@@ -1,20 +1,30 @@
 import recall from '@protoplasm/recall'
 import { DirectiveNode, DocumentNode, Kind, SchemaExtensionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refsInDefs, byRef, Defs, isLocatable, Locatable, fill } from './de'
+import { refsIn, byRef, Defs, isLocatable, Locatable, fill, De } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './bootstrap'
 import directives from './directives'
 import { HgRef } from './hgref'
 import Scope, { including, IScope } from './scope'
 import { isAst } from './is'
-
-export class Schema implements Defs {
+import gql from './gql'
+export class Schema implements Defs {  
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
     if (frame instanceof Schema)
       return new this(document, frame.scope)
     return new this(document, frame)
   }
 
+  static readonly BASIC = Schema.from(
+    gql `${'builtin:schema/basic'}  
+      @link(url: "https://specs.apollo.dev/link/v0.3")
+      @link(url: "https://specs.apollo.dev/id/v1.0")
+    `)
+
+  static basic(document: DocumentNode) {
+    return this.from(document, this.BASIC)
+  }
+  
   public get scope(): IScope {
     return this.frame.child(
       scope => {
@@ -60,42 +70,42 @@ export class Schema implements Defs {
     return this.scope.locate(node)
   }
 
-  fill(atlas?: Defs): Schema {
-    return this.append(fill(this, atlas))
-  }
-
-  toCore(): Schema {
-    const directives = [...this.scope.linker?.synthesize(this.scope.flat) ?? []]
-    const header: SchemaExtensionNode[] = directives.length
+  compile(atlas?: Defs): Schema {
+    let flat = this.scope.flat
+    const directives = [...flat.linker?.synthesize(flat) ?? []]
+    let scope = flat
+    while (scope[Symbol.iterator]().next().value) {
+      scope = scope.child(including(refsIn(directives)))
+      directives.push(...scope.linker?.synthesize(scope) ?? [])
+    }
+    
+    const header: De<SchemaExtensionNode>[] = directives.length
       ? [{
-        kind: Kind.SCHEMA_EXTENSION,
-        directives
-      }] : []
+          kind: Kind.SCHEMA_EXTENSION,
+          directives,
+          hgref: HgRef.schema(this.url)
+        }] : []
+    const extras = fill([...header, ...this], atlas)
+    scope = scope.child(including(refsIn(extras))).flat
+    
+    const finalDirs = [...scope.linker?.synthesize(scope) ?? []]
+    const hdr: Defs = directives.length
+      ? [{
+          kind: Kind.SCHEMA_EXTENSION,
+          directives: finalDirs,
+          hgref: HgRef.schema(this.url)
+        }] : []
+
     return Schema.from({
       kind: Kind.DOCUMENT,
       definitions: [
-        ...header,
-        ...pruneLinks(this),
+        ...scope.renormalizeDefs([
+          ...hdr,
+          ...pruneLinks(this),
+          ...extras
+        ])
       ]
     })
-  }
-
-  append(defs: Defs): Schema {
-    const scope = this.scope.child(including(refsInDefs(defs)))
-    const directives = [...scope.linker?.synthesize(scope) ?? []]
-    const header: SchemaExtensionNode[] = directives.length
-      ? [{
-        kind: Kind.SCHEMA_EXTENSION,
-        directives
-      }] : []
-    return Schema.from({
-      kind: Kind.DOCUMENT,
-      definitions: [
-        ...this,
-        ...header,
-        ...scope.renormalizeDefs(defs)
-      ]
-    }, scope.parent?.parent)
   }
 
   protected constructor(
@@ -116,7 +126,7 @@ const selfIn = recall(
   }
 )
 
-function *pruneLinks(defs: Defs) {
+function *pruneLinks(defs: Defs): Defs {
   for (const def of defs) {
     if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
       if (!def.directives) yield def

@@ -6,4 +6,7 @@ export {err} from './error'
 
 import {Schema} from './schema'
 export default Schema
+
+export {gql} from './gql'
+export {HgRef} from './hgref'
 // export * from './errors'

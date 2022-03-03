@@ -36,7 +36,7 @@ export class HgRef {
     return graph + (this.name ? `#${this.name}` : '')
   }
 
-  constructor(public readonly name: string, public readonly graph?: LinkUrl) {}
+  private constructor(public readonly name: string, public readonly graph?: LinkUrl) {}
 }
 
 export default HgRef

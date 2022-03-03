@@ -9,7 +9,10 @@ import { hasRef } from '../de'
  */
 export const test = (val: any) => typeof val.kind === 'string'
 export const print = (val: ASTNode) => {
-  if (!val.loc) return '[synth] ' + printNode(val)
+  const hgref = hasRef(val)
+    ? `<${val.hgref?.toString() ?? ''}>`
+    : ''
+  if (!val.loc) return `${hgref}[+] ${printNode(val)}`
   const {loc} = val
   const {line} = loc.startToken
   let start = loc.startToken
@@ -18,10 +21,7 @@ export const print = (val: ASTNode) => {
     start = start.prev
   while (end.next && end.next.line === line)
     end = end.next
-  const text = val.loc.source.body.substring(start.start, end.end)
-  const hgref = hasRef(val)
-    ? `<${val.hgref?.toString() ?? ''}>`
-    : ''
+  const text = val.loc.source.body.substring(start.start, end.end)  
   const col = loc.startToken.start - start.start
   const head = text.substring(0, col)
   const tail = text.substring(col)

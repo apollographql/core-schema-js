@@ -8,6 +8,7 @@ import {LinkUrl} from './location'
 import { HgRef } from './hgref'
 import { scopeNameFor } from './names'
 import { groupBy } from './each'
+import { De } from './de'
 
 const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/core/v0.1', 'feature'],
@@ -122,10 +123,11 @@ export class Linker {
     const urlArg = LINK_SPECS.get(url.href)
     if (!urlArg) return
     if (args[urlArg] !== url) return
-    return new this(strap, urlArg)
+    return new this(strap, url, urlArg)
   }
 
   protected constructor(public readonly strap: DirectiveNode,
+    public readonly url: LinkUrl,
     private readonly urlParam: string) {}
 
   #link = new GraphQLDirective({
@@ -170,7 +172,7 @@ export class Linker {
     }    
   }
 
-  *synthesize(links: Iterable<Link>): Iterable<ConstDirectiveNode> {
+  *synthesize(links: Iterable<Link>): Iterable<De<ConstDirectiveNode>> {
     const linksByUrl = byUrl(links)
     const urls = [...linksByUrl.keys()].sort(
       (a, b) =>
@@ -240,7 +242,8 @@ export class Linker {
       yield {
         kind: Kind.DIRECTIVE,
         name: this.strap.name,
-        arguments: args
+        arguments: args,
+        hgref: HgRef.rootDirective(this.url)
       }
     }
   }

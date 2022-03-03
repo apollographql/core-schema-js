@@ -1,7 +1,7 @@
 import recall, { use } from '@protoplasm/recall'
 import { ASTNode, Kind, visit } from 'graphql'
 import { Linker, type Link } from './bootstrap'
-import { De, Def, Defs, isLocatable, isLocated, Locatable, Located } from './de'
+import { De, Def, Defs, hasRef, isLocatable, isLocated, Locatable, Located } from './de'
 import HgRef from './hgref'
 import { isAst, hasName } from './is'
 import LinkUrl from './location'
@@ -48,12 +48,15 @@ export class Scope implements IScope {
   get url() { return this.self?.hgref.graph }
 
   locate(node: Locatable): HgRef {
+    if (hasRef(node)) return node.hgref
+    
     if (isAst(node, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
       return HgRef.schema(this.url)
     }
     const [ prefix, name ] = getPrefix(node.name?.value ?? '')
 
     if (prefix) {
+      // a prefixed__Name
       const found = this.lookup(prefix)
       if (found) return HgRef.canon(scopeNameFor(node, name), found.hgref.graph)
     }

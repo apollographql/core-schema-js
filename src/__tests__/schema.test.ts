@@ -1,8 +1,12 @@
-import { Kind, parse, Source } from "graphql";
+import { Kind, parse, Source, print } from "graphql";
 import { Locatable } from "../de";
+import gql from "../gql";
 import { HgRef } from "../hgref";
 import LinkUrl from "../location";
 import Schema from "../schema";
+import { Atlas } from "../atlas";
+import raw from "../snapshot-serializers/raw";
+import recall from "@protoplasm/recall";
 
 const base = Schema.from(
   parse(
@@ -87,15 +91,13 @@ describe("Schema", () => {
   });
 
   it("understands @id", () => {
-    const schema = Schema.from(
-      parse(`
-      extend schema
-        @id(url: "https://specs/me")
-        @link(url: "https://specs.apollo.dev/federation/v2.0",
-          import: "@requires @key @prov: @provides")      
-    `),
-      base
-    );
+    const schema = Schema.basic(gql`${"schema with id"}
+      @id(url: "https://specs/me")
+      @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: "@requires @key @prov: @provides")
+      directive @me repeatable on SCHEMA
+      scalar Something @key   
+    `);
     expect(schema.url).toBe(LinkUrl.from("https://specs/me"));
     expect(schema.locate(ref("@id"))).toBe(
       HgRef.rootDirective("https://specs.apollo.dev/id/v1.0")
@@ -109,6 +111,13 @@ describe("Schema", () => {
     expect(schema.locate(ref("@myDirective"))).toBe(
       HgRef.directive("myDirective", "https://specs/me")
     );
+    expect([...schema]).toMatchInlineSnapshot(`
+      Array [
+        <https://specs/me>[schema with id] 👉@id(url: "https://specs/me"),
+        <https://specs/me#@>[schema with id] 👉directive @me repeatable on SCHEMA,
+        <https://specs/me#Something>[schema with id] 👉scalar Something @key,
+      ]
+    `);
 
     // a self-link is added when the url has a name
     expect(schema.scope.own("")?.hgref).toBe(HgRef.schema("https://specs/me"));
@@ -149,58 +158,96 @@ describe("Schema", () => {
     );
   });
 
-  it("can append defs", () => {
-    const schema = Schema.from(
-      parse(`
-    extend schema
-        @id(url: "https://specs/me")
-    `),
-      base
+  it("compiles", () => {
+    const builtins = Schema.basic(gql`${"builtins"}
+      @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key")
+    `);
+    const atlas = Atlas.fromSchemas(
+      Schema.basic(gql`${"link spec"}
+        @id(url: "https://specs.apollo.dev/link/v0.3")
+        
+        directive @link(url: Url!, as: Name, import: Imports)
+          repeatable on SCHEMA
+        scalar Url
+        scalar Name
+        scalar Imports
+      `),
+      Schema.basic(gql`${"fed spec"}
+        @id(url: "https://specs.apollo.dev/federation/v1.0")
+
+        directive @key(fields: FieldSet!) on OBJECT
+        scalar FieldSet
+      `)
     );
-    const other = Schema.from(
-      parse(`
-    extend schema @id(url: "https://my/library")
 
-    type User {
-      id: ID!
-    }
+    expect([...atlas]).toMatchInlineSnapshot(`
+      Array [
+        <https://specs.apollo.dev/link/v0.3>[link spec] 👉@id(url: "https://specs.apollo.dev/link/v0.3"),
+        <https://specs.apollo.dev/link/v0.3#@>[link spec] 👉directive @link(url: Url!, as: Name, import: Imports),
+        <https://specs.apollo.dev/link/v0.3#Url>[link spec] 👉scalar Url,
+        <https://specs.apollo.dev/link/v0.3#Name>[link spec] 👉scalar Name,
+        <https://specs.apollo.dev/link/v0.3#Imports>[link spec] 👉scalar Imports,
+        <https://specs.apollo.dev/federation/v1.0>[fed spec] 👉@id(url: "https://specs.apollo.dev/federation/v1.0"),
+        <https://specs.apollo.dev/federation/v1.0#@key>[fed spec] 👉directive @key(fields: FieldSet!) on OBJECT,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[fed spec] 👉scalar FieldSet,
+      ]
+    `);
 
-    directive @mine on SCHEMA
-    `),
-      base
+    const subgraph = Schema.from(
+      gql`
+        ${"subgraph"}
+        type User @key(fields: "x y z") {
+          id: ID!
+        }
+      `,
+      builtins
     );
-    const third = Schema.from(
-      parse(`
-      extend schema
-      @id(url: "https://the/third")
-      @link(url: "https://my/library", import: "ID")
 
-      type Product {
+    const result = recall(() => subgraph.compile(atlas)).getResult();
+    expect([...result.errors()].map((e: any) => [e, e.nodes]))
+      .toMatchInlineSnapshot(`
+      Array [
+        Array [
+          [NoDefinition: no definitions found for reference],
+          Array [
+            <#ID>[subgraph] id: 👉ID!,
+          ],
+        ],
+      ]
+    `);
+    if (!result.didReturn()) throw result.error;
+    const compiled = result.data;
+    expect([...compiled]).toMatchInlineSnapshot(`
+      Array [
+        <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key") @link(url: "https://specs.apollo.dev/id/v1.0"),
+        <#User>[subgraph] 👉type User @key(fields: "x y z") {,
+        <https://specs.apollo.dev/link/v0.3#@>[link spec] 👉directive @link(url: Url!, as: Name, import: Imports),
+        <https://specs.apollo.dev/federation/v1.0#@key>[fed spec] 👉directive @key(fields: FieldSet!) on OBJECT,
+        <https://specs.apollo.dev/link/v0.3#Url>[link spec] 👉scalar Url,
+        <https://specs.apollo.dev/link/v0.3#Name>[link spec] 👉scalar Name,
+        <https://specs.apollo.dev/link/v0.3#Imports>[link spec] 👉scalar Imports,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[fed spec] 👉scalar FieldSet,
+      ]
+    `);
+
+    expect(raw(print(compiled.document))).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key") @link(url: "https://specs.apollo.dev/id/v1.0")
+
+      type User @key(fields: "x y z") {
         id: ID!
       }
-      `),
-      base
-    );
-    const withDefs = schema.append([
-      ...other.definitions(HgRef.named("User")),
-      ...other.definitions(HgRef.directive("mine")),
-      ...third.definitions(HgRef.named("Product")),
-    ]);
-    expect(schema.scope.linker).toBeTruthy();
-    expect(withDefs.document).toMatchInlineSnapshot(`
-      [synth] extend schema @id(url: "https://specs/me")
 
-      extend schema @link(url: "https://my/library") @link(url: "https://the/third")
+      directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
-      type library__User {
-        id: library__ID!
-      }
+      directive @key(fields: federation__FieldSet!) on OBJECT
 
-      directive @library__mine on SCHEMA
+      scalar link__Url
 
-      type third__Product {
-        id: library__ID!
-      }
+      scalar link__Name
+
+      scalar link__Imports
+
+      scalar federation__FieldSet
     `);
   });
 });
