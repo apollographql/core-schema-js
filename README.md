@@ -187,16 +187,19 @@ const subgraph = Schema.basic(gql`${"subgraph"}
   @link(url: "https://specs.apollo.dev/federation/v2.0",
         # what weird naming choices!
         import: """
-          @fkey: @key
-          @frequires: @requires
-          @fprovides: @provides
-          @ftag: @tag
+          @key      (as @fkey)
+          @requires (as @frequires)
+          @provides (as @fprovides)
+          @tag      (as @ftag)
         """)
 
   type User @fkey(fields: "id") {
     id: ID! @ftag(name: "hi") @tag(name: "my tag")
   }
 
+  # note: this is our *own* @tag directive, which looks
+  # just like but means something different than
+  # federation's @tag:
   directive @tag(name: string) on FIELD_DEFINITION
 `);
 
