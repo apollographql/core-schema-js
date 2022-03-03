@@ -183,7 +183,7 @@ perhaps you want to scan directives in a document without having to worry about 
 the `schema.standardize(...urls)` method can help:
 
 ```typescript
-const subgraph = Schema.basic(gql`${"subgraph"}
+const subgraph = Schema.basic(gql `
   @link(url: "https://specs.apollo.dev/federation/v2.0",
         # what weird naming choices!
         import: """
