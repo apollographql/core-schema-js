@@ -176,6 +176,47 @@ expect(
 ).toBe(false)
 ```
 
+## standardize names within a document
+
+perhaps you want to scan directives in a document without having to worry about whether the user has renamed them.
+
+the `schema.standardize(...urls)` method can help:
+
+```typescript
+const subgraph = Schema.basic(gql`${"subgraph"}
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        # what weird naming choices!
+        import: """
+          @fkey: @key
+          @frequires: @requires
+          @fprovides: @provides
+          @ftag: @tag
+        """)
+
+  type User @fkey(fields: "id") {
+    id: ID! @ftag(name: "hi") @tag(name: "my tag")
+  }
+
+  directive @tag(name: string) on FIELD_DEFINITION
+`);
+
+expect(
+  raw(
+    // standardize takes LinkUrls and ensures that all references to that schema
+    // are prefixed with its standard name
+    subgraph.standardize("https://specs.apollo.dev/federation/v2.0").print()
+  )
+).toMatchInlineSnapshot(`
+  extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/id/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0")
+
+  type User @federation__key(fields: "id") {
+    id: ID! @federation__tag(name: "hi") @tag(name: "my tag")
+  }
+
+  directive @tag(name: string) on FIELD_DEFINITION
+`);
+```
+
 # motivation
 
 this library exists to help you read and manipulate core schemas.
