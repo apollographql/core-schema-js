@@ -152,7 +152,7 @@ export class Scope implements IScope {
 
   get linker() {
     for (const [_, link] of this.visible()) {
-      if (link.linker) return link.linker
+      if (link.linker) return Linker.bootstrap(link.linker)
     }
     return
   }

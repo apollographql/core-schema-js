@@ -1,4 +1,4 @@
-import recall from '@protoplasm/recall'
+import recall, { replay, use } from '@protoplasm/recall'
 import { DirectiveNode, DocumentNode, Kind, SchemaExtensionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { refsIn, byRef, Defs, isLocatable, Locatable, fill, De } from './de'
@@ -58,6 +58,11 @@ export class Schema implements Defs {
     for (const def of this.document.definitions) {
       if (isLocatable(def)) yield scope.denormalize(def)
     }
+  }
+
+  @use(replay)
+  get refs() {
+    return refsIn(this)
   }
 
   definitions(ref?: HgRef): Defs {

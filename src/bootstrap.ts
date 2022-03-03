@@ -76,7 +76,7 @@ export interface Link {
   name: string
   hgref: HgRef
   via?: DirectiveNode
-  linker?: Linker
+  linker?: DirectiveNode
 }
 
 const $id = new GraphQLDirective({
@@ -108,15 +108,16 @@ export const id = recall(
 )
 
 export class Linker {
-  static from(scope: IScope, dir: DirectiveNode): Maybe<Linker> {
+  static from(scope: IScope, dir: DirectiveNode): Linker | undefined {
     const self = this.bootstrap(dir)
     if (self) return self
     const other = scope.lookup('@' + dir.name.value)
-    return other?.linker
+    if (!other?.linker) return
+    return Linker.bootstrap(other.linker)
   }
 
   @use(recall)
-  static bootstrap(strap: DirectiveNode): Maybe<Linker> {    
+  static bootstrap(strap: DirectiveNode): Linker | undefined {
     const args = getArgumentValues($bootstrap, strap)
     const url: Maybe<LinkUrl> = (args.url ?? args.feature) as LinkUrl
     if (!url) return
@@ -151,13 +152,13 @@ export class Linker {
         name,
         hgref: HgRef.schema(url),
         via: directive,
-        linker: this,
+        linker: this.strap,
       }
       yield {
         name: '@' + name,
         hgref: HgRef.rootDirective(url),
         via: directive,
-        linker: this,
+        linker: this.strap,
       }
     }
     for (const i of args.import as ImportNode[] ?? []) {
@@ -167,7 +168,7 @@ export class Linker {
         name: alias,
         hgref: HgRef.named(name, url),
         via: directive,
-        linker: this,
+        linker: this.strap,
       }
     }    
   }

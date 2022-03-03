@@ -59,6 +59,8 @@ export class LinkUrl {
     return new this(href, name, version)
   }
 
+  toString() { return this.href }
+
   private constructor(
     public readonly href: string,
     public readonly name?: string,

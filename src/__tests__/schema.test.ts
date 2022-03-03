@@ -26,6 +26,64 @@ const base = Schema.from(
 );
 
 describe("Schema", () => {
+  it("a basic schema", () => {
+    const schema = Schema.basic(gql`${"example.graphql"}
+      @link(url: "https://specs.apollo.dev/federation/v1.0")
+      @link(url: "https://specs.apollo.dev/inaccessible/v0.1")
+    
+      type User @inaccessible {
+        id: ID!
+      }
+    `);
+
+    expect([...schema]).toMatchInlineSnapshot(`
+      Array [
+        <>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        <#User>[example.graphql] 👉type User @inaccessible {,
+      ]
+    `);
+
+    expect([...schema.scope]).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "hgref": HgRef <https://specs.apollo.dev/federation/v1.0>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "federation",
+          "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        },
+        Object {
+          "hgref": HgRef <https://specs.apollo.dev/federation/v1.0#@>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@federation",
+          "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        },
+        Object {
+          "hgref": HgRef <https://specs.apollo.dev/inaccessible/v0.1>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "inaccessible",
+          "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
+        },
+        Object {
+          "hgref": HgRef <https://specs.apollo.dev/inaccessible/v0.1#@>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@inaccessible",
+          "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
+        },
+      ]
+    `);
+
+    expect([...schema.refs]).toMatchInlineSnapshot(`
+      Array [
+        <>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
+        <#User>[example.graphql] 👉type User @inaccessible {,
+        <https://specs.apollo.dev/inaccessible/v0.1#@>[example.graphql] type User 👉@inaccessible {,
+        <#ID>[example.graphql] id: 👉ID!,
+      ]
+    `);
+  });
+
   it("can be created from a doc", () => {
     const schema = Schema.from(
       parse(
