@@ -1,5 +1,5 @@
 import recall, { use } from '@protoplasm/recall'
-import LinkUrl from './location'
+import LinkUrl from './link-url'
 
 export class HgRef {
   @use(recall)

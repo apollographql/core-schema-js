@@ -4,7 +4,7 @@ import { Linker, type Link } from './linker'
 import { De, Def, Defs, hasRef, isLocatable, isLocated, Locatable, Located } from './de'
 import HgRef from './hgref'
 import { isAst, hasName } from './is'
-import LinkUrl from './location'
+import LinkUrl from './link-url'
 import { getPrefix, scopeNameFor, toPrefixed } from './names'
 import ScopeMap from './scope-map'
 

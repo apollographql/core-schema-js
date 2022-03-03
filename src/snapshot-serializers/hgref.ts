@@ -1,5 +1,5 @@
 import {HgRef} from '../hgref'
-import {LinkUrl} from '../location'
+import {LinkUrl} from '../link-url'
 
 export const test = (val: any) =>
     val instanceof HgRef

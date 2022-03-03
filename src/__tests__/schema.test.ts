@@ -2,7 +2,7 @@ import { Kind, parse, Source, print } from "graphql";
 import { Locatable } from "../de";
 import gql from "../gql";
 import { HgRef } from "../hgref";
-import LinkUrl from "../location";
+import LinkUrl from "../link-url";
 import Schema from "../schema";
 import { Atlas } from "../atlas";
 import raw from "../snapshot-serializers/raw";

@@ -114,7 +114,7 @@ links already in scope.
 enable this:
 
 ```typescript
-const parent = Schema.from(gql `
+const SUBGRAPH_BUILTINS = Schema.from(gql `
   extend schema
     @link(url: "https://specs.apollo.dev/link/v0.3")
     @link(url: "https://specs.apollo.dev/federation/v1.0",
@@ -122,7 +122,7 @@ const parent = Schema.from(gql `
 `)
 
 function subgraph(document: DocumentNode) {
-  return Schema.from(document, frame)
+  return Schema.from(document, SUBGRAPH_BUILTINS)
 }
 
 subgraph(gql `

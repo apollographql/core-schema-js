@@ -1,6 +1,6 @@
 import { Kind } from "graphql";
 import gql from "../gql";
-import LinkUrl from "../location";
+import LinkUrl from "../link-url";
 import Schema, { pruneLinks } from "../schema";
 import Scope from "../scope";
 import raw from "../snapshot-serializers/raw";
@@ -43,7 +43,7 @@ describe("view of a schema", () => {
     });
     expect(raw(output.print())).toMatchInlineSnapshot(`
       extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/id/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0")
-      
+
       type User @federation__key(fields: "id") {
         id: ID! @federation__tag(name: "hi") @tag(name: "my tag")
       }

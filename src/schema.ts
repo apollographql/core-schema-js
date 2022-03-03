@@ -8,7 +8,7 @@ import { HgRef } from './hgref'
 import Scope, { including, IScope } from './scope'
 import { isAst } from './is'
 import gql from './gql'
-import LinkUrl from './location'
+import LinkUrl from './link-url'
 export class Schema implements Defs {  
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
     if (frame instanceof Schema)

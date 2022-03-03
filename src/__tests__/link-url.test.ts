@@ -1,4 +1,4 @@
-import {LinkUrl} from '../location'
+import {LinkUrl} from '../link-url'
 import {HgRef} from '../hgref'
 
 describe('LinkUrl.parse', () => {
