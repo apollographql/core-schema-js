@@ -3,9 +3,9 @@ import { Version } from "../version";
 describe("version", () => {
   describe(".parse", () => {
     it(".parse parses valid version tags", () => {
-      expect(Version.parse("v1.0")).toEqual(new Version(1, 0));
-      expect(Version.parse("v0.1")).toEqual(new Version(0, 1));
-      expect(Version.parse("v987.65432")).toEqual(new Version(987, 65432));
+      expect(Version.parse("v1.0")).toEqual(Version.canon(1, 0));
+      expect(Version.parse("v0.1")).toEqual(Version.canon(0, 1));
+      expect(Version.parse("v987.65432")).toEqual(Version.canon(987, 65432));
     });
 
     it("returns null for invalid versions", () => {
@@ -18,17 +18,17 @@ describe("version", () => {
   });
   describe(".satisfies", () => {
     it("returns true if this version satisfies the requested version", () => {
-      expect(new Version(1, 0).satisfies(new Version(1, 0))).toBe(true);
-      expect(new Version(1, 2).satisfies(new Version(1, 0))).toBe(true);
+      expect(Version.canon(1, 0).satisfies(Version.canon(1, 0))).toBe(true);
+      expect(Version.canon(1, 2).satisfies(Version.canon(1, 0))).toBe(true);
     });
 
     it("returns false if this version cannot satisfy the requested version", () => {
-      expect(new Version(2, 0).satisfies(new Version(1, 9))).toBe(false);
-      expect(new Version(0, 9).satisfies(new Version(0, 8))).toBe(false);
+      expect(Version.canon(2, 0).satisfies(Version.canon(1, 9))).toBe(false);
+      expect(Version.canon(0, 9).satisfies(Version.canon(0, 8))).toBe(false);
     });
   });
   it(".equals returns true iff the versions are exactly equal", () => {
-    expect(new Version(2, 9).equals(new Version(2, 9))).toBe(true);
-    expect(new Version(2, 9).equals(new Version(2, 8))).toBe(false);
+    expect(Version.canon(2, 9).equals(Version.canon(2, 9))).toBe(true);
+    expect(Version.canon(2, 9).equals(Version.canon(2, 8))).toBe(false);
   });
 });

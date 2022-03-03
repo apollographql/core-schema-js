@@ -24,18 +24,18 @@ import recall, { use } from "@protoplasm/recall"
     if (!input) return null
     const match = input.match(this.VERSION_RE)
     if (!match) return null
-    return this.canonical(+match[1], +match[2])
+    return this.canon(+match[1], +match[2])
   }
   
   public static from(input: string | [number, number] | Version): Version | null {
     if (input instanceof this) return input
     if (typeof input === 'string') return this.parse(input)
-    if (Array.isArray(input)) return this.canonical(...input)
+    if (Array.isArray(input)) return this.canon(...input)
     return null
   }
 
   @use(recall)
-  public static canonical(major: number, minor: number): Version {
+  public static canon(major: number, minor: number): Version {
     return new this(major, minor)
   }
 
