@@ -1,6 +1,6 @@
 import recall, { use } from '@protoplasm/recall'
 import { byRef, Defs } from './de';
-import HgRef from './hgref';
+import GRef from './hgref';
 import Schema from './schema';
 
 export interface IAtlas extends Defs {
@@ -13,7 +13,7 @@ export class Atlas implements IAtlas {
     return new this(schemas)
   }
 
-  *definitions(ref?: HgRef): Defs {
+  *definitions(ref?: GRef): Defs {
     if (!ref) return this
     return yield* byRef(...this.schemas).get(ref) ?? []
   }

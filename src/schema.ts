@@ -1,10 +1,10 @@
 import recall, { replay, use } from '@protoplasm/recall'
 import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refsIn, byRef, Defs, isLocatable, Locatable, fill, De } from './de'
+import { refNodesIn, byRef, Defs, isLocatable, Locatable, fill, De } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
-import { HgRef } from './hgref'
+import { GRef } from './hgref'
 import Scope, { including, IScope } from './scope'
 import { isAst } from './is'
 import gql from './gql'
@@ -45,7 +45,7 @@ export class Schema implements Defs {
           scope.add({
             ...self,
             name: '@' + self.name,
-            hgref: HgRef.rootDirective(self.hgref.graph)
+            gref: GRef.rootDirective(self.gref.graph)
           })
         }
       })
@@ -63,16 +63,16 @@ export class Schema implements Defs {
 
   @use(replay)
   get refs() {
-    return refsIn(this)
+    return refNodesIn(this)
   }
 
-  definitions(ref?: HgRef): Defs {
+  definitions(ref?: GRef): Defs {
     if (!ref) return this
     if (this.url && !ref.graph) ref = ref.setGraph(this.url)
     return byRef(this).get(ref) ?? []
   }
 
-  locate(node: Locatable): HgRef {
+  locate(node: Locatable): GRef {
     return this.scope.locate(node)
   }
 
@@ -84,14 +84,14 @@ export class Schema implements Defs {
         if (!name)
           throw new Error('urls sent to standardize must have names')
         scope.add({
-          name, hgref: HgRef.schema(graph)
+          name, gref: GRef.schema(graph)
         })
       }
     })
     const newScope = Scope.create((scope) => {
       const flat = this.scope.flat
       for (const link of flat) {
-        if (!graphs.has(link.hgref.graph!)) scope.add(link);
+        if (!graphs.has(link.gref.graph!)) scope.add(link);
       }
       for (const link of standard) scope.add(link);
     });
@@ -111,7 +111,7 @@ export class Schema implements Defs {
     const directives = [...flat.linker?.synthesize(flat) ?? []]
     let scope = flat
     while (scope[Symbol.iterator]().next().value) {
-      scope = scope.child(including(refsIn(directives)))
+      scope = scope.child(including(refNodesIn(directives)))
       directives.push(...scope.linker?.synthesize(scope) ?? [])
     }
     
@@ -119,17 +119,17 @@ export class Schema implements Defs {
       ? [{
           kind: Kind.SCHEMA_EXTENSION,
           directives,
-          hgref: HgRef.schema(this.url)
+          gref: GRef.schema(this.url)
         }] : []
     const extras = fill([...header, ...this], atlas)
-    scope = scope.child(including(refsIn(extras))).flat
+    scope = scope.child(including(refNodesIn(extras))).flat
     
     const finalDirs = [...scope.linker?.synthesize(scope) ?? []]
     const hdr: Defs = directives.length
       ? [{
           kind: Kind.SCHEMA_EXTENSION,
           directives: finalDirs,
-          hgref: HgRef.schema(this.url)
+          gref: GRef.schema(this.url)
         }] : []
 
     return Schema.from({
@@ -170,7 +170,7 @@ export function *pruneLinks(defs: Defs): Defs {
   for (const def of defs) {
     if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
       if (!def.directives) yield def
-      const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has(dir.hgref))
+      const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has(dir.gref))
       if (!directives?.length && !def.operationTypes?.length && !(def as SchemaDefinitionNode).description)
         continue
       yield { ...def, directives }

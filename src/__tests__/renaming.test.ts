@@ -31,7 +31,7 @@ describe("view of a schema", () => {
     const newScope = Scope.create((scope) => {
       const flat = subgraph.scope.flat
       for (const link of flat) {
-        if (link.hgref.graph !== FED2) scope.add(link);
+        if (link.gref.graph !== FED2) scope.add(link);
       }
       for (const link of federation.scope) scope.add(link);
     });

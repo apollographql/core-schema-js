@@ -2,7 +2,7 @@ import recall, { use } from '@protoplasm/recall'
 import { ASTNode, Kind, visit } from 'graphql'
 import { Linker, type Link } from './linker'
 import { De, Def, Defs, hasRef, isLocatable, isLocated, Locatable, Located } from './de'
-import HgRef from './hgref'
+import GRef from './hgref'
 import { isAst, hasName } from './is'
 import LinkUrl from './link-url'
 import { getPrefix, scopeNameFor, toPrefixed } from './names'
@@ -24,7 +24,7 @@ export interface IScope extends Iterable<Link> {
   visible(): Iterable<[string, Link]>
   entries(): Iterable<[string, Link]>
   header(): Defs
-  locate(node: Locatable): HgRef
+  locate(node: Locatable): GRef
   rLocate(node: Located): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
   renormalizeDefs(defs: Defs): Iterable<Def>
@@ -46,20 +46,20 @@ export class Scope implements IScope {
 
   get self() { return this.names.lookup('') }
 
-  get url() { return this.self?.hgref.graph }
+  get url() { return this.self?.gref.graph }
 
-  locate(node: Locatable): HgRef {
-    if (hasRef(node)) return node.hgref
+  locate(node: Locatable): GRef {
+    if (hasRef(node)) return node.gref
     
     if (isAst(node, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
-      return HgRef.schema(this.url)
+      return GRef.schema(this.url)
     }
     const [ prefix, name ] = getPrefix(node.name?.value ?? '')
 
     if (prefix) {
       // a prefixed__Name
       const found = this.lookup(prefix)
-      if (found) return HgRef.canon(scopeNameFor(node, name), found.hgref.graph)
+      if (found) return GRef.canon(scopeNameFor(node, name), found.gref.graph)
     }
 
     // if there was no prefix OR the prefix wasn't found,
@@ -72,23 +72,23 @@ export class Scope implements IScope {
     // any api with a core schema by appropriately selecting link names
     // with `@link(as:)` or `@link(import:)`, even if the desired
     // api contains double-underscored names (odd choice, but you do you)
-    return this.lookup(scopeNameFor(node))?.hgref ?? HgRef.canon(scopeNameFor(node), this.url)
+    return this.lookup(scopeNameFor(node))?.gref ?? GRef.canon(scopeNameFor(node), this.url)
   }
 
   header(): Defs {
     const directives = [...this.linker?.synthesize(this) ?? []]
     if (directives.length) {
-      return [{ kind: Kind.SCHEMA_EXTENSION, directives, hgref: HgRef.schema(this.url) }]
+      return [{ kind: Kind.SCHEMA_EXTENSION, directives, gref: GRef.schema(this.url) }]
     }
     return []
   }
 
   rLocate(node: Located): [string | null, string] | undefined {
-    const bareName = this.reverse.lookup(node.hgref)
+    const bareName = this.reverse.lookup(node.gref)
     if (bareName) return [null, bareName]
 
-    const prefix = this.reverse.lookup(node.hgref.setName(''))
-    if (prefix) return [prefix, node.hgref.name]
+    const prefix = this.reverse.lookup(node.gref.setName(''))
+    if (prefix) return [prefix, node.gref.name]
 
     return
   }
@@ -100,7 +100,7 @@ export class Scope implements IScope {
       enter<T extends ASTNode>(node: T, _: any, ): De<T> | undefined {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
         if (isLocatable(node)) {
-          return { ...node, hgref: self.locate(node) } as De<T>
+          return { ...node, gref: self.locate(node) } as De<T>
         }
         return
       }
@@ -169,11 +169,11 @@ export class Scope implements IScope {
   //@ts-ignore — accessible via IScopeMut
   private add(link: Link): void {
     this.names.set(link.name, link)
-    this.reverse.set(link.hgref, link.name)
+    this.reverse.set(link.gref, link.name)
   }
 
   private readonly names: ScopeMap<string, Link> = new ScopeMap(this.parent?.names)
-  private readonly reverse: ScopeMap<HgRef, string> = new ScopeMap(this.parent?.reverse)
+  private readonly reverse: ScopeMap<GRef, string> = new ScopeMap(this.parent?.reverse)
 
   private constructor(public readonly parent?: Scope) {}
 }
@@ -197,14 +197,14 @@ export default Scope
  */
 export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
   for (const ref of refs) {
-    const graph = ref.hgref.graph
+    const graph = ref.gref.graph
     if (!graph) continue
     const found = scope.rLocate(ref)
     if (found) continue
     for (const name of graph.suggestNames()) {
       if (scope.has(name)) continue
       scope.add({
-        name, hgref: ref.hgref.setName('')
+        name, gref: ref.gref.setName('')
       })
       break
     }

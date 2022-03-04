@@ -1,7 +1,7 @@
 import { Kind, parse, Source, print } from "graphql";
 import { Locatable } from "../de";
 import gql from "../gql";
-import { HgRef } from "../hgref";
+import { GRef } from "../hgref";
 import LinkUrl from "../link-url";
 import Schema from "../schema";
 import { Atlas } from "../atlas";
@@ -46,25 +46,25 @@ describe("Schema", () => {
     expect(schema.scope).toMatchInlineSnapshot(`
       Scope [
         Object {
-          "hgref": HgRef <https://specs.apollo.dev/federation/v1.0>,
+          "gref": GRef <https://specs.apollo.dev/federation/v1.0>,
           "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
           "name": "federation",
           "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         },
         Object {
-          "hgref": HgRef <https://specs.apollo.dev/federation/v1.0#@>,
+          "gref": GRef <https://specs.apollo.dev/federation/v1.0#@>,
           "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
           "name": "@federation",
           "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         },
         Object {
-          "hgref": HgRef <https://specs.apollo.dev/inaccessible/v0.1>,
+          "gref": GRef <https://specs.apollo.dev/inaccessible/v0.1>,
           "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
           "name": "inaccessible",
           "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
         },
         Object {
-          "hgref": HgRef <https://specs.apollo.dev/inaccessible/v0.1#@>,
+          "gref": GRef <https://specs.apollo.dev/inaccessible/v0.1#@>,
           "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
           "name": "@inaccessible",
           "via": [example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
@@ -100,17 +100,17 @@ describe("Schema", () => {
       )
     );
     expect(schema.url).toBe(LinkUrl.from("https://my.org/mySchema"));
-    expect(schema.scope.own("link")?.hgref).toBe(
-      HgRef.schema("https://specs.apollo.dev/link/v0.3")
+    expect(schema.scope.own("link")?.gref).toBe(
+      GRef.schema("https://specs.apollo.dev/link/v0.3")
     );
-    expect(schema.scope.own("spec")?.hgref).toBe(
-      HgRef.schema("https://specs.company.org/someSpec/v1.2")
+    expect(schema.scope.own("spec")?.gref).toBe(
+      GRef.schema("https://specs.company.org/someSpec/v1.2")
     );
-    expect(schema.scope.own("@foo")?.hgref).toBe(
-      HgRef.rootDirective("https://example.com/foo")
+    expect(schema.scope.own("@foo")?.gref).toBe(
+      GRef.rootDirective("https://example.com/foo")
     );
     expect(schema.locate(ref("@spec__dir"))).toBe(
-      HgRef.directive("dir", "https://specs.company.org/someSpec/v1.2")
+      GRef.directive("dir", "https://specs.company.org/someSpec/v1.2")
     );
   });
 
@@ -124,27 +124,27 @@ describe("Schema", () => {
       base.scope
     );
 
-    // note: .toBe checks are intentional, equal hgrefs
+    // note: .toBe checks are intentional, equal grefs
     // are meant to be identical (the same object) via
     // caching. this allows them to be treated as
     // values (e.g. used as keys in maps)
     expect(schema.locate(ref("@requires"))).toBe(
-      HgRef.directive("requires", "https://specs.apollo.dev/federation/v2.0")
+      GRef.directive("requires", "https://specs.apollo.dev/federation/v2.0")
     );
-    expect(schema.locate(ref("@provides"))).toBe(HgRef.directive("provides"));
+    expect(schema.locate(ref("@provides"))).toBe(GRef.directive("provides"));
     expect(schema.locate(ref("@federation"))).toBe(
-      HgRef.directive("", "https://specs.apollo.dev/federation/v2.0")
+      GRef.directive("", "https://specs.apollo.dev/federation/v2.0")
     );
     expect(schema.locate(ref("@prov"))).toBe(
-      HgRef.directive("provides", "https://specs.apollo.dev/federation/v2.0")
+      GRef.directive("provides", "https://specs.apollo.dev/federation/v2.0")
     );
     expect(schema.locate(ref("link__Schema"))).toBe(
-      HgRef.named("Schema", "https://specs.apollo.dev/link/v0.3")
+      GRef.named("Schema", "https://specs.apollo.dev/link/v0.3")
     );
 
     // all nodes have locations
     expect(schema.locate(ref("link__Schema"))).toBe(
-      HgRef.named("Schema", "https://specs.apollo.dev/link/v0.3")
+      GRef.named("Schema", "https://specs.apollo.dev/link/v0.3")
     );
   });
 
@@ -158,16 +158,16 @@ describe("Schema", () => {
     `);
     expect(schema.url).toBe(LinkUrl.from("https://specs/me"));
     expect(schema.locate(ref("@id"))).toBe(
-      HgRef.rootDirective("https://specs.apollo.dev/id/v1.0")
+      GRef.rootDirective("https://specs.apollo.dev/id/v1.0")
     );
     expect(schema.locate(ref("@requires"))).toBe(
-      HgRef.directive("requires", "https://specs.apollo.dev/federation/v2.0")
+      GRef.directive("requires", "https://specs.apollo.dev/federation/v2.0")
     );
     expect(schema.locate(ref("SomeLocalType"))).toBe(
-      HgRef.named("SomeLocalType", "https://specs/me")
+      GRef.named("SomeLocalType", "https://specs/me")
     );
     expect(schema.locate(ref("@myDirective"))).toBe(
-      HgRef.directive("myDirective", "https://specs/me")
+      GRef.directive("myDirective", "https://specs/me")
     );
     expect(schema).toMatchInlineSnapshot(`
       Schema [
@@ -178,12 +178,12 @@ describe("Schema", () => {
     `);
 
     // a self-link is added when the url has a name
-    expect(schema.scope.own("")?.hgref).toBe(HgRef.schema("https://specs/me"));
+    expect(schema.scope.own("")?.gref).toBe(GRef.schema("https://specs/me"));
 
     // directive terms with the same name as the current schema
     // are mapped to the root directive.
     expect(schema.locate(ref("@me"))).toBe(
-      HgRef.rootDirective("https://specs/me")
+      GRef.rootDirective("https://specs/me")
     );
   });
 
@@ -208,7 +208,7 @@ describe("Schema", () => {
     expect(schema.definitions(schema.locate(ref("@link")))).toEqual([]);
     const link = schema.locate(ref("@link"));
     expect(link).toBe(
-      HgRef.rootDirective("https://specs.apollo.dev/link/v0.3")
+      GRef.rootDirective("https://specs.apollo.dev/link/v0.3")
     );
   });
 

@@ -2,18 +2,22 @@ import { replay, report } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, Kind, NamedTypeNode } from 'graphql'
 import { groupBy } from './each'
 import err from './error'
-import HgRef from './hgref'
+import GRef from './hgref'
 import { isAst } from './is'
 
-export const ErrNoDefinition = (hgref: HgRef, ...nodes: ASTNode[]) =>
+export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
   err('NoDefinition', {
     message: 'no definitions found for reference',
-    hgref,
+    gref,
     nodes
   })
 
+export interface HasGref {
+  gref: GRef
+}
+
 /**
- * A detatched (or denormalized) AST node. Detached nodes have an `hgref: HgRef`
+ * A detatched (or denormalized) AST node. Detached nodes have an `gref'
  * property which holds their location within the global graph. This makes them
  * easier to move them between documents, which may have different sets of `@link`
  * directives (and thus different namespaces).
@@ -23,13 +27,13 @@ export type De<T> =
     ? De<E>[]
     :
   T extends Locatable
-    ? { hgref: HgRef } & {
+    ? {
       [K in keyof T]:
         K extends 'kind' | 'loc'
           ? T[K]
           :
         De<T[K]>
-    }
+    } & HasGref
     :
   T extends object
     ? {
@@ -49,13 +53,13 @@ export type Locatable =
   | DirectiveNode
   | NamedTypeNode
 
-export type Located = Locatable & { hgref: HgRef }
+export type Located = Locatable & HasGref
 
 
 /**
  * group detached nodes (or anything with an 'hgref' really )
  */
-export const byRef = groupBy(<T extends { hgref?: HgRef }>(node: T) => node.hgref)
+export const byRef = groupBy(<T extends HasGref>(node: T) => node.gref)
 
 /**
  * Complete `source` definitions with definitions from `atlas`.
@@ -68,20 +72,20 @@ export const byRef = groupBy(<T extends { hgref?: HgRef }>(node: T) => node.hgre
  * @returns
  */
 export function fill(source: Defs, atlas?: Defs): Defs {
-  const notDefined = new Map<HgRef, Locatable[]>()
-  const failed = new Set<HgRef>()
-  const added = new Set<HgRef>()
+  const notDefined = new Map<GRef, Locatable[]>()
+  const failed = new Set<GRef>()
+  const added = new Set<GRef>()
   const fill: Def[] = []
   const atlasDefs = atlas ? byRef(atlas) : null
 
   const ingest = (defs: Defs) => {
-    for (const ref of refsIn(defs)) {
-      const defs = byRef(source).get(ref.hgref)
-      if (!defs && !added.has(ref.hgref))
-        if (notDefined.has(ref.hgref))
-          notDefined.get(ref.hgref)!.push(ref)
+    for (const node of refNodesIn(defs)) {
+      const defs = byRef(source).get(node.gref)
+      if (!defs && !added.has(node.gref))
+        if (notDefined.has(node.gref))
+          notDefined.get(node.gref)!.push(node)
         else
-          notDefined.set(ref.hgref, [ref])
+          notDefined.set(node.gref, [node])
     }
   }
 
@@ -105,7 +109,7 @@ export function fill(source: Defs, atlas?: Defs): Defs {
   return fill
 }
 
-export function *refsIn(defs: Defs | Iterable<ASTNode>): Iterable<Located> {
+export function *refNodesIn(defs: Defs | Iterable<ASTNode>): Iterable<Located> {
   for (const def of defs)
     yield* deepRefs(def)
 }
@@ -142,8 +146,8 @@ export function *children<T>(root: T): Iterable<ChildOf<T>> {
   }
 }
 
-export const hasRef = (o?: any): o is { hgref: HgRef } =>
-  o?.hgref instanceof HgRef
+export const hasRef = (o?: any): o is { gref: GRef } =>
+  o?.gref instanceof GRef
 
 
 const LOCATABLE_KINDS = new Set([

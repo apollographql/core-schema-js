@@ -1,5 +1,5 @@
 import {LinkUrl} from '../link-url'
-import {HgRef} from '../hgref'
+import {GRef} from '../hgref'
 
 describe('LinkUrl.parse', () => {
   it('parses urls with names and versions', () => {
@@ -47,11 +47,11 @@ describe('LinkUrl.parse', () => {
 
 describe('hgrefs', () => {
   it('are canonicalized', () => {
-    expect(HgRef.named('User')).toBe(HgRef.named('User'))
-    expect(HgRef.directive('deprecated')).toBe(HgRef.directive('deprecated'))
-    expect(HgRef.named('User', 'https://example.com/schema'))
-      .toBe(HgRef.named('User', 'https://example.com/schema'))
-    expect(HgRef.directive('requires', 'https://example.com/federation/v2.0'))
-      .toBe(HgRef.directive('requires', 'https://example.com/federation/v2.0'))
+    expect(GRef.named('User')).toBe(GRef.named('User'))
+    expect(GRef.directive('deprecated')).toBe(GRef.directive('deprecated'))
+    expect(GRef.named('User', 'https://example.com/schema'))
+      .toBe(GRef.named('User', 'https://example.com/schema'))
+    expect(GRef.directive('requires', 'https://example.com/federation/v2.0'))
+      .toBe(GRef.directive('requires', 'https://example.com/federation/v2.0'))
   })
 })

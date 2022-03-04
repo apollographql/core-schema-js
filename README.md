@@ -56,7 +56,7 @@ expect([...schema.refs]).toMatchInlineSnapshot(`
 ## look for directives by their global graph position
 
 ```typescript
-import {Schema, Defs, HgRef, directives} from '@apollo/core-schema'
+import {Schema, Defs, GRef, directives} from '@apollo/core-schema'
 
 const doc = Schema.basic(gql `
   extend schema
@@ -67,11 +67,11 @@ const doc = Schema.basic(gql `
   type User
 `)
 
-const HIDDEN = HgRef.rootDirective('https://spec.example.io/hidden/v1.0')
+const HIDDEN = GRef.rootDirective('https://spec.example.io/hidden/v1.0')
 function *hiddenDefs(defs: Defs) {
   for (const def of defs) {
     for (const directive of directives(def)) {
-      if (directive.hgref === HIDDEN) {
+      if (directive.gref === HIDDEN) {
         yield def
         break
       }
@@ -89,7 +89,7 @@ get a `Schema` from a document with `Schema.from` and then
 look up document names via `schema.scope`:
 
 ```typescript
-import {Schema, HgRef, ref} from '@apollo/core-schema'
+import {Schema, GRef, ref} from '@apollo/core-schema'
 
 const doc = Schema.from(gql `
   extend schema
@@ -98,10 +98,10 @@ const doc = Schema.from(gql `
     @link(url: "https://spec.example.io/another/v1.0", as: "renamed")
 `)
 expect(doc.scope.lookup('@link')).toBe(
-  HgRef.rootDirective('https://specs.apollo.dev/link/v0.3')
+  GRef.rootDirective('https://specs.apollo.dev/link/v0.3')
 )
 expect(doc.scope.lookup('renamed__Type'))).toBe(
-  HgRef.named('Type', "https://spec.example.io/another/v1.0")
+  GRef.named('Type', "https://spec.example.io/another/v1.0")
 )
 ```
 
@@ -151,7 +151,7 @@ subgraph(gql `
 ```typescript
 function linksFed2(doc: Schema) {
   for (const link of doc.scope) {
-    if (link.hgref.graph.satisfies(LinkUrl.from("https://specs.apollo.dev/federation/v2.0"))) {
+    if (link.gref.graph.satisfies(LinkUrl.from("https://specs.apollo.dev/federation/v2.0"))) {
       // child links federation 2.0
       return true
     }  
@@ -371,17 +371,17 @@ const schema = Schema.from(gql `
 const defs = [...schema]
 ```
 
-`Schema`s always yield detached subtrees. definitions and references in a detached subtree have a `.hgref` property, which locates the node within the global graph:
+`Schema`s always yield detached subtrees. definitions and references in a detached subtree have a `.gref` property, which locates the node within the global graph:
 
 ```typescript
-import {HgRef} from '@apollo/core-schema'
+import {GRef} from '@apollo/core-schema'
 
-expect(defs[defs.length - 1].hgref).toBe(
-  HgRef.named('User', 'https://my/schema')
+expect(defs[defs.length - 1].gref).toBe(
+  GRef.named('User', 'https://my/schema')
 )
 ```
 
-(an "hgref" is an "href" for the "g"raph).
+(an "gref" is an "href" for the "g"raph).
 
 you can insert detached nodes into the document using whatever mechanism:
 
@@ -395,7 +395,7 @@ function $tag(name: string) {
       name: { kind: Kind.NAME, value: "name" },
       value: { kind: Kind.STRING, value: name }
     }],
-    hgref: HgRef.rootDirective("https://specs.apollo.dev/tag/v0.1")
+    gref: GRef.rootDirective("https://specs.apollo.dev/tag/v0.1")
   }
 ])
 
@@ -404,7 +404,7 @@ const newSchema = schema.mapDoc(schema =>
   visit(schema.document, {
     Directive(node) {
       if (!hasRef(node)) return
-      if (node.hgref === HgRef.rootDirective("https://myorg.internal/future")) {
+      if (node.gref === GRef.rootDirective("https://myorg.internal/future")) {
         // replace @future with @tag(name: "future")
         return $tag("future")
       }
@@ -452,7 +452,7 @@ a consequence of the pure/immutable/memoized design is that we generally do not 
 
 ### canonized value types
 
-a few types—notably `HgRef`, `LinkUrl`, and `Version`—are *canonized*. that is, they can only be created via a memoized function, which ensures that two equivalent instances will always be the same instance:
+a few types—notably `GRef`, `LinkUrl`, and `Version`—are *canonized*. that is, they can only be created via a memoized function, which ensures that two equivalent instances will always be the same instance:
 
 ```typescript
 expect(LinkUrl.from('https://specs/example/?extraneous&stuff&ignored'))

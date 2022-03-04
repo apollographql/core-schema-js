@@ -5,10 +5,10 @@ import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
 import type { IScope } from './scope'
 import {LinkUrl} from './link-url'
-import { HgRef } from './hgref'
+import { GRef } from './hgref'
 import { scopeNameFor } from './names'
 import { groupBy } from './each'
-import { De } from './de'
+import { De, HasGref } from './de'
 
 const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/core/v0.1', 'feature'],
@@ -17,7 +17,7 @@ const LINK_SPECS = new Map([
 ])
 
 export const LINK_DIRECTIVES = new Set(
-  [...LINK_SPECS.keys()].map(url => HgRef.rootDirective(url))
+  [...LINK_SPECS.keys()].map(url => GRef.rootDirective(url))
 )
 
 export const LINK_SPEC_URLS = new Set(
@@ -72,9 +72,8 @@ const $bootstrap = new GraphQLDirective({
   isRepeatable: true,
 })
 
-export interface Link {
+export interface Link extends HasGref {
   name: string
-  hgref: HgRef
   via?: DirectiveNode
   linker?: DirectiveNode
 }
@@ -89,7 +88,7 @@ const $id = new GraphQLDirective({
   isRepeatable: true,
 })
 
-const ID_DIRECTIVE = HgRef.rootDirective('https://specs.apollo.dev/id/v1.0')
+const ID_DIRECTIVE = GRef.rootDirective('https://specs.apollo.dev/id/v1.0')
 
 export const id = recall(
   function id(scope: IScope, dir: DirectiveNode): Maybe<Link> {
@@ -99,7 +98,7 @@ export const id = recall(
       const name: string = (args.as ?? url.name) as string
       return {
         name,
-        hgref: HgRef.schema(url),
+        gref: GRef.schema(url),
         via: dir,
       }
     }
@@ -150,13 +149,13 @@ export class Linker {
     if (name !== '') {
       yield {
         name,
-        hgref: HgRef.schema(url),
+        gref: GRef.schema(url),
         via: directive,
         linker: this.strap,
       }
       yield {
         name: '@' + name,
-        hgref: HgRef.rootDirective(url),
+        gref: GRef.rootDirective(url),
         via: directive,
         linker: this.strap,
       }
@@ -166,7 +165,7 @@ export class Linker {
       const name = scopeNameFor(i.element)
       yield {
         name: alias,
-        hgref: HgRef.named(name, url),
+        gref: GRef.named(name, url),
         via: directive,
         linker: this.strap,
       }
@@ -186,15 +185,15 @@ export class Linker {
       let alias: string = ''
       const imports: [string, string][] = []
       for (const link of linksForUrl) {
-        if (!link.hgref.name) {
+        if (!link.gref.name) {
           // a link to the schema tells us the alias,
           // if any
           alias = link.name
           continue
         }
-        if (link.hgref.name === '@')          
+        if (link.gref.name === '@')          
           continue // root directive is implict
-        imports.push([link.name, link.hgref.name])
+        imports.push([link.name, link.gref.name])
       }
       const args: ConstArgumentNode[] = [{
         kind: Kind.ARGUMENT,
@@ -244,11 +243,11 @@ export class Linker {
         kind: Kind.DIRECTIVE,
         name: this.strap.name,
         arguments: args,
-        hgref: HgRef.rootDirective(this.url)
+        gref: GRef.rootDirective(this.url)
       }
     }
   }
 }
 
-const byUrl = groupBy((link: Link) => link.hgref.graph)
+const byUrl = groupBy((link: Link) => link.gref.graph)
 

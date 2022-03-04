@@ -1,6 +1,6 @@
 import { DirectiveNode, parse } from "graphql";
 import { Linker } from "../linker";
-import HgRef from "../hgref";
+import GRef from "../hgref";
 
 describe("Linker", () => {
   describe("synthesize", () => {
@@ -13,7 +13,7 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            hgref: HgRef.directive(
+            gref: GRef.directive(
               "key",
               "https://specs.apollo.dev/federation"
             ),
@@ -29,7 +29,7 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            hgref: HgRef.directive(
+            gref: GRef.directive(
               "key",
               "https://specs.apollo.dev/federation"
             ),
@@ -37,7 +37,7 @@ describe("Linker", () => {
 
           {
             name: "federation",
-            hgref: HgRef.schema("https://specs.apollo.dev/federation"),
+            gref: GRef.schema("https://specs.apollo.dev/federation"),
           },
         ])
       ).toMatchInlineSnapshot(`
@@ -50,7 +50,7 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            hgref: HgRef.directive(
+            gref: GRef.directive(
               "key",
               "https://specs.apollo.dev/federation"
             ),
@@ -58,7 +58,7 @@ describe("Linker", () => {
 
           {
             name: "fed",
-            hgref: HgRef.schema("https://specs.apollo.dev/federation"),
+            gref: GRef.schema("https://specs.apollo.dev/federation"),
           },
         ]),
       ).toMatchInlineSnapshot(`
@@ -73,7 +73,7 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            hgref: HgRef.directive(
+            gref: GRef.directive(
               "key",
               "https://specs.apollo.dev/federation"
             ),
@@ -81,17 +81,17 @@ describe("Linker", () => {
 
           {
             name: "fed",
-            hgref: HgRef.schema("https://specs.apollo.dev/federation"),
+            gref: GRef.schema("https://specs.apollo.dev/federation"),
           },
 
           {
             name: "Graph",
-            hgref: HgRef.named("Graph", "https://specs.apollo.dev/join"),
+            gref: GRef.named("Graph", "https://specs.apollo.dev/join"),
           },
 
           {
             name: "@joinType",
-            hgref: HgRef.directive("type", "https://specs.apollo.dev/join"),
+            gref: GRef.directive("type", "https://specs.apollo.dev/join"),
           },
         ]),
       ).toMatchInlineSnapshot(`

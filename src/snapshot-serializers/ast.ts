@@ -9,10 +9,10 @@ import { hasRef } from '../de'
  */
 export const test = (val: any) => typeof val.kind === 'string'
 export const print = (val: ASTNode) => {
-  const hgref = hasRef(val)
-    ? `<${val.hgref?.toString() ?? ''}>`
+  const gref = hasRef(val)
+    ? `<${val.gref?.toString() ?? ''}>`
     : ''
-  if (!val.loc) return `${hgref}[+] ${printNode(val)}`
+  if (!val.loc) return `${gref}[+] ${printNode(val)}`
   const loc = skipDescription(val.loc)
   const {line} = loc
   let start = loc
@@ -25,7 +25,7 @@ export const print = (val: ASTNode) => {
   const col = loc.start - start.start
   const head = text.substring(0, col)
   const tail = text.substring(col)
-  return `${hgref}[${val.loc.source.name}] ${head}👉${tail}`
+  return `${gref}[${val.loc.source.name}] ${head}👉${tail}`
 }
 
 function skipDescription(loc: Location) {

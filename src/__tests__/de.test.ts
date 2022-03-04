@@ -1,7 +1,7 @@
 import recall from "@protoplasm/recall";
 import { parse, Source } from "graphql";
-import { fill, refsIn } from "../de";
-import HgRef from "../hgref";
+import { fill, refNodesIn } from "../de";
+import GRef from "../hgref";
 import Schema from "../schema";
 
 const base = Schema.from(
@@ -97,8 +97,8 @@ describe("refsInDefs", () => {
     `),
       base
     );
-    const User = schema.definitions(HgRef.named("User"));
-    expect([...refsIn(User)]).toMatchInlineSnapshot(`
+    const User = schema.definitions(GRef.named("User"));
+    expect([...refNodesIn(User)]).toMatchInlineSnapshot(`
       Array [
         <#User>[GraphQL request] 👉type User @key(fields: "id") @federation {,
         <https://specs.apollo.dev/federation/v2.0#@key>[GraphQL request] type User 👉@key(fields: "id") @federation {,
@@ -139,7 +139,7 @@ describe("a subgraph test", () => {
       scalar federation__FieldSet
     `)
     );
-    expect([...refsIn(schema)]).toMatchInlineSnapshot(`
+    expect([...refNodesIn(schema)]).toMatchInlineSnapshot(`
       Array [
         <>[GraphQL request] 👉extend schema,
         <https://specs.apollo.dev/link/v0.3#@>[GraphQL request] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),

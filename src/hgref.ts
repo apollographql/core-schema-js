@@ -1,9 +1,9 @@
 import recall, { use } from '@protoplasm/recall'
 import LinkUrl from './link-url'
 
-export class HgRef {
+export class GRef {
   @use(recall)
-  static canon(name: string, graph?: LinkUrl): HgRef {
+  static canon(name: string, graph?: LinkUrl): GRef {
     return new this(name, graph)
   }
 
@@ -24,11 +24,11 @@ export class HgRef {
   }
 
   setGraph(graph?: LinkUrl | string) {
-    return HgRef.canon(this.name, LinkUrl.from(graph))
+    return GRef.canon(this.name, LinkUrl.from(graph))
   }
 
   setName(name: string) {
-    return HgRef.canon(name, this.graph)
+    return GRef.canon(name, this.graph)
   }
 
   toString() {
@@ -39,4 +39,4 @@ export class HgRef {
   private constructor(public readonly name: string, public readonly graph?: LinkUrl) {}
 }
 
-export default HgRef
+export default GRef
