@@ -1,7 +1,7 @@
 import { Kind, parse, Source, print } from "graphql";
 import { Locatable } from "../de";
 import gql from "../gql";
-import { GRef } from "../hgref";
+import { GRef } from "../gref";
 import LinkUrl from "../link-url";
 import Schema from "../schema";
 import { Atlas } from "../atlas";

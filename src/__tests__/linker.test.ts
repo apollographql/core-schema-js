@@ -1,6 +1,6 @@
 import { DirectiveNode, parse } from "graphql";
 import { Linker } from "../linker";
-import GRef from "../hgref";
+import GRef from "../gref";
 
 describe("Linker", () => {
   describe("synthesize", () => {

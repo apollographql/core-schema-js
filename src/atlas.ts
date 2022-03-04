@@ -1,6 +1,6 @@
 import recall, { use } from '@protoplasm/recall'
 import { byRef, Defs } from './de';
-import GRef from './hgref';
+import GRef from './gref';
 import Schema from './schema';
 
 export interface IAtlas extends Defs {

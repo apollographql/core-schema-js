@@ -2,7 +2,7 @@ import { replay, report } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, Kind, NamedTypeNode } from 'graphql'
 import { groupBy } from './each'
 import err from './error'
-import GRef from './hgref'
+import GRef from './gref'
 import { isAst } from './is'
 
 export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>

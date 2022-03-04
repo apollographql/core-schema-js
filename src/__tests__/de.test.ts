@@ -1,7 +1,7 @@
 import recall from "@protoplasm/recall";
 import { parse, Source } from "graphql";
 import { fill, refNodesIn } from "../de";
-import GRef from "../hgref";
+import GRef from "../gref";
 import Schema from "../schema";
 
 const base = Schema.from(

@@ -1,4 +1,4 @@
-import {GRef} from '../hgref'
+import {GRef} from '../gref'
 import {LinkUrl} from '../link-url'
 
 export const test = (val: any) =>

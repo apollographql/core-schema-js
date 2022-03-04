@@ -1,5 +1,5 @@
 import {LinkUrl} from '../link-url'
-import {GRef} from '../hgref'
+import {GRef} from '../gref'
 
 describe('LinkUrl.parse', () => {
   it('parses urls with names and versions', () => {
