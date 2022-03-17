@@ -45,7 +45,7 @@ describe('LinkUrl.parse', () => {
   })
 })
 
-describe('hgrefs', () => {
+describe('grefs', () => {
   it('are canonicalized', () => {
     expect(GRef.named('User')).toBe(GRef.named('User'))
     expect(GRef.directive('deprecated')).toBe(GRef.directive('deprecated'))
