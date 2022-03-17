@@ -72,6 +72,8 @@ export class Scope implements IScope {
     // any api with a core schema by appropriately selecting link names
     // with `@link(as:)` or `@link(import:)`, even if the desired
     // api contains double-underscored names (odd choice, but you do you)
+    //
+    // FIXME: make namespace escape explicit with @link(!url, import:)
     return this.lookup(scopeNameFor(node))?.gref ?? GRef.canon(scopeNameFor(node), this.url)
   }
 
