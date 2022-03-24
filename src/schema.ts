@@ -145,7 +145,7 @@ export class Schema implements Defs {
   }
 
   print(): string {
-    return print(this.compile().document)
+    return print(this.document)
   }
 
   protected constructor(
