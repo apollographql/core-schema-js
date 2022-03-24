@@ -30,6 +30,10 @@ export class LinkUrl {
     return this.canon(url.href, name ?? undefined, version ?? undefined)
   }
 
+  static get GRAPHQL_SPEC() {
+    return LinkUrl.from('https://specs.graphql.org')
+  }
+
   *suggestNames(): Iterable<string> {
     if (this.name) yield this.name
     if (this.name && this.version) {

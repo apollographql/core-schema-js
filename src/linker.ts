@@ -180,7 +180,8 @@ export class Linker {
         (LINK_SPEC_URLS.has(a) ? 1 : 0)
     )
     for (const url of urls) {
-      if (!url) continue
+      if (!url) continue      
+      if (url === LinkUrl.GRAPHQL_SPEC) continue
       const linksForUrl = linksByUrl.get(url)!
       let alias: string = ''
       const imports: [string, string][] = []

@@ -1,5 +1,5 @@
 import { Kind, parse, Source, print } from "graphql";
-import { Locatable } from "../de";
+import { Locatable, refNodesIn } from "../de";
 import gql from "../gql";
 import { GRef } from "../gref";
 import LinkUrl from "../link-url";
@@ -79,7 +79,7 @@ describe("Schema", () => {
         <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
         <#User>[example.graphql] 👉type User @inaccessible {,
         <https://specs.apollo.dev/inaccessible/v0.1#@>[example.graphql] type User 👉@inaccessible {,
-        <#ID>[example.graphql] id: 👉ID!,
+        <https://specs.graphql.org/#ID>[example.graphql] id: 👉ID!,
       ]
     `);
   });
@@ -207,9 +207,7 @@ describe("Schema", () => {
 
     expect(schema.definitions(schema.locate(ref("@link")))).toEqual([]);
     const link = schema.locate(ref("@link"));
-    expect(link).toBe(
-      GRef.rootDirective("https://specs.apollo.dev/link/v0.3")
-    );
+    expect(link).toBe(GRef.rootDirective("https://specs.apollo.dev/link/v0.3"));
   });
 
   it("compiles", () => {
@@ -252,6 +250,7 @@ describe("Schema", () => {
         ${"subgraph"}
         type User @key(fields: "x y z") {
           id: ID!
+          field: SomeUnresolvedType
         }
       `,
       builtins
@@ -264,12 +263,12 @@ describe("Schema", () => {
         Array [
           [NoDefinition: no definitions found for reference],
           Array [
-            <#ID>[subgraph] id: 👉ID!,
+            <#SomeUnresolvedType>[subgraph] field: 👉SomeUnresolvedType,
           ],
         ],
       ]
     `);
-    const compiled = result.unwrap()
+    const compiled = result.unwrap();
     expect([...compiled]).toMatchInlineSnapshot(`
       Array [
         <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key") @link(url: "https://specs.apollo.dev/id/v1.0"),
@@ -288,6 +287,7 @@ describe("Schema", () => {
 
       type User @key(fields: "x y z") {
         id: ID!
+        field: SomeUnresolvedType
       }
 
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
@@ -333,6 +333,36 @@ describe("Schema", () => {
       }
 
       directive @tag(name: string) on FIELD_DEFINITION
+    `);
+  });
+
+  it("omits links and namespacing for graphql builtins", () => {
+    const tag = Schema.basic(gql`${"tag/v0.1"}
+      @id(url: "https://specs.apollo.dev/tag/v0.1")
+      directive @tag(name: String!)
+        repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+      `);
+    expect(
+      refNodesIn(
+        tag.definitions(GRef.rootDirective("https://specs.apollo.dev/tag/v0.1"))
+      )
+    ).toMatchInlineSnapshot(`
+        Iterable [
+          <https://specs.apollo.dev/tag/v0.1#@>[tag/v0.1] 👉directive @tag(name: String!),
+          <https://specs.graphql.org/#String>[tag/v0.1] directive @tag(name: 👉String!),
+        ]
+      `);
+
+    const schema = Schema.basic(gql`${"user-schema"}
+      @link(url: "https://specs.apollo.dev/tag/v0.1")
+      extend type User @tag(name: "tagged")
+    `);
+    expect(raw(schema.compile(tag).print())).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/tag/v0.1") @link(url: "https://specs.apollo.dev/id/v1.0")
+
+      extend type User @tag(name: "tagged")
+
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
     `);
   });
 });

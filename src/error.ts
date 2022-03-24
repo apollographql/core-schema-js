@@ -26,7 +26,8 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
         (this as any)[prop] = (props as any)[prop]
       }
 
-    this.name = code;
+    this.name = code
+    this.extensions.code = code
   }
 
   throw(): never { throw this }

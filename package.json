@@ -32,7 +32,7 @@
     "@protoplasm/recall": "^0.2"
   },
   "peerDependencies": {
-    "graphql": "^15.7.2 || ^16.0.0"
+    "graphql": "^15 || ^16"
   },
   "devDependencies": {
     "@types/jest": "27.4.1",

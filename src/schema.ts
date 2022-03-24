@@ -17,8 +17,12 @@ export class Schema implements Defs {
   }
 
   static readonly BASIC = Schema.from(
-    gql `${'builtin:schema/basic'}  
+    gql `${'builtin:schema/basic'}
       @link(url: "https://specs.apollo.dev/link/v0.3")
+      @link(url: "https://specs.graphql.org", import: """
+        @deprecated @specifiedBy
+        Int Float String Boolean ID
+      """)
       @link(url: "https://specs.apollo.dev/id/v1.0")
     `)
 

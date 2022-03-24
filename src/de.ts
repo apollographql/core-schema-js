@@ -4,6 +4,7 @@ import { groupBy } from './each'
 import err from './error'
 import GRef from './gref'
 import { isAst } from './is'
+import LinkUrl from './link-url'
 
 export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
   err('NoDefinition', {
@@ -80,7 +81,7 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
   const ingest = (defs: Defs) => {
     for (const node of refNodesIn(defs)) {
       const defs = byRef(source).get(node.gref)
-      if (!defs && !added.has(node.gref))
+      if (!defs && !added.has(node.gref) && node.gref.graph !== LinkUrl.GRAPHQL_SPEC)
         if (notDefined.has(node.gref))
           notDefined.get(node.gref)!.push(node)
         else
