@@ -73,7 +73,7 @@ describe("Schema", () => {
     `);
 
     expect(schema.refs).toMatchInlineSnapshot(`
-      Object [
+      Record [
         <>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
@@ -269,8 +269,7 @@ describe("Schema", () => {
         ],
       ]
     `);
-    if (!result.didReturn()) throw result.error;
-    const compiled = result.data;
+    const compiled = result.unwrap()
     expect([...compiled]).toMatchInlineSnapshot(`
       Array [
         <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key") @link(url: "https://specs.apollo.dev/id/v1.0"),

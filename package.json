@@ -29,7 +29,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@protoplasm/recall": "^0.1.0"
+    "@protoplasm/recall": "^0.2"
   },
   "peerDependencies": {
     "graphql": "^15.7.2 || ^16.0.0"

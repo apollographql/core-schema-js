@@ -1,4 +1,4 @@
-import recall from "@protoplasm/recall";
+import { getResult } from "@protoplasm/recall";
 import { parse, Source } from "graphql";
 import { fill, refNodesIn } from "../de";
 import GRef from "../gref";
@@ -43,7 +43,7 @@ const schema = Schema.from(
 describe("fill", () => {
   it("fills definitions", () => {
     expect(fill(schema, base)).toMatchInlineSnapshot(`
-      Array [
+      Iterable [
         <https://specs.apollo.dev/id/v1.0#@>[builtins.graphql] 👉directive @id(url: link__Url!, as: link__Schema) on SCHEMA,
         <https://specs.apollo.dev/link/v0.3#@>[builtins.graphql] 👉directive @link(url: link__Url!, as: link__Schema, import: link__Import),
       ]
@@ -51,7 +51,7 @@ describe("fill", () => {
   });
 
   it("reports errors", () => {
-    const result = recall(() => fill(schema, base)).getResult();
+    const result = getResult(() => [...fill(schema, base)])
     expect(
       [...result.errors()]
         .map((e: any) => e.code)
@@ -178,8 +178,7 @@ describe("a subgraph test", () => {
       base
     );
 
-    const compile = recall(() => fill(schema, LINK));
-    expect([...compile()]).toMatchInlineSnapshot(`
+    expect([...fill(schema, LINK)]).toMatchInlineSnapshot(`
       Array [
         <https://specs.apollo.dev/link/v0.3#@>[builtin/link/v0.3.graphql] 👉directive @link(url: Url!, as: Name, import: Imports),
         <https://specs.apollo.dev/link/v0.3#Url>[builtin/link/v0.3.graphql] 👉scalar Url,
@@ -190,8 +189,7 @@ describe("a subgraph test", () => {
 
     expect(
       [
-        ...recall(() => fill(schema, LINK))
-          .getResult()
+        ...getResult(() => [...fill(schema, LINK)])
           .errors(),
       ].map((x) => (x as any).nodes)
     ).toMatchInlineSnapshot(`

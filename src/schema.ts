@@ -121,7 +121,7 @@ export class Schema implements Defs {
           directives,
           gref: GRef.schema(this.url)
         }] : []
-    const extras = fill([...header, ...this], atlas)
+    const extras = [...fill([...header, ...this], atlas)]
     scope = scope.child(including(refNodesIn(extras))).flat
     
     const finalDirs = [...scope.linker?.synthesize(scope) ?? []]

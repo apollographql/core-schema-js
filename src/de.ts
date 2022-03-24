@@ -64,18 +64,17 @@ export const byRef = groupBy(<T extends HasGref>(node: T) => node.gref)
 /**
  * Complete `source` definitions with definitions from `atlas`.
  *
- * Returns the set of defs to be added.
+ * Emits the set of defs to be added.
  *
  * Reports ErrNoDefinition for any dangling references.
  *
  * @param defs
  * @returns
  */
-export function fill(source: Defs, atlas?: Defs): Defs {
+export function *fill(source: Defs, atlas?: Defs): Defs {
   const notDefined = new Map<GRef, Locatable[]>()
   const failed = new Set<GRef>()
   const added = new Set<GRef>()
-  const fill: Def[] = []
   const atlasDefs = atlas ? byRef(atlas) : null
 
   const ingest = (defs: Defs) => {
@@ -102,11 +101,9 @@ export function fill(source: Defs, atlas?: Defs): Defs {
     } else {
       ingest(defs)
       added.add(ref)
-      fill.push(...defs)
+      yield* defs
     }
   }
-
-  return fill
 }
 
 export function *refNodesIn(defs: Defs | Iterable<ASTNode>): Iterable<Located> {
