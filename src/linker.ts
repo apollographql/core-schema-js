@@ -1,5 +1,5 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode } from 'graphql'
+import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode, NameNode } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
@@ -52,6 +52,12 @@ const Imports = new GraphQLScalarType({
       const text = value.values.map(value => {
         if (value.kind === Kind.STRING)
           return value.value
+        if (value.kind === Kind.OBJECT) {
+          const name = byName(value.fields).get('name')[0].value.value
+          const alias = byName(value.fields).get('as')[0].value.value
+          if (alias && alias !== name)
+            return `${alias}: ${name}`
+        }
         return undefined
       }).filter(Boolean).join(' ')
       return ImportsParser.fromString(text)
@@ -60,6 +66,8 @@ const Imports = new GraphQLScalarType({
     return ImportsParser.fromString(value.value)
   }
 })
+
+const byName = groupBy((field: { name: NameNode }) => field.name.value)
 
 const $bootstrap = new GraphQLDirective({
   name: 'link',

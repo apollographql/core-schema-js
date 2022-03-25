@@ -7,7 +7,7 @@ import { hasRef } from '../de'
  * This keeps snapshots more readable, as AST nodes typically have a whole
  * subtree attached to them.
  */
-export const test = (val: any) => typeof val.kind === 'string'
+export const test = (val: any) => typeof val?.kind === 'string'
 export const print = (val: ASTNode) => {
   const gref = hasRef(val)
     ? `<${val.gref?.toString() ?? ''}>`

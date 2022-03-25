@@ -365,6 +365,123 @@ describe("Schema", () => {
       directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
     `);
   });
+
+  it("handles @link import string with list of objects", () => {
+    const schema = Schema.basic(gql`@link(url: "https://example",
+      import: ["@foo", {name: "@bar", as: "@barAlias"}, {name: "Type", as: "TypeAlias"}])`);
+    expect(schema.scope).toMatchInlineSnapshot(`
+      Scope [
+        Object {
+          "gref": GRef <https://example/>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": undefined,
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@undefined",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@foo>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@foo",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@bar>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@barAlias",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#Type>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "TypeAlias",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+      ]
+    `);
+  });
+
+  it("handles @link import string with ':' aliases", () => {
+    const schema = Schema.basic(gql`@link(url: "https://example",
+      import: "@foo @barAlias: @bar TypeAlias: Type")`);
+    expect(schema.scope).toMatchInlineSnapshot(`
+      Scope [
+        Object {
+          "gref": GRef <https://example/>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": undefined,
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@undefined",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@foo>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@foo",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@bar>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@barAlias",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#Type>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "TypeAlias",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+      ]
+    `);
+  });
+
+  it("handles @link import string with (as) aliases", () => {
+    const schema = Schema.basic(gql`@link(url: "https://example",
+      import: "@foo @bar (as @barAlias) Type (as TypeAlias)")`);
+    expect(schema.scope).toMatchInlineSnapshot(`
+      Scope [
+        Object {
+          "gref": GRef <https://example/>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": undefined,
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@undefined",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@foo>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@foo",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#@barAlias>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "@bar",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+        Object {
+          "gref": GRef <https://example/#TypeAlias>,
+          "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+          "name": "Type",
+          "via": [GraphQL request] 👉@link(url: "https://example",
+        },
+      ]
+    `);
+  });
 });
 
 function ref(name: string): Locatable {
