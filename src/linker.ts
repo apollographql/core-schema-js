@@ -238,12 +238,26 @@ export class Linker {
             value: 'import',
           },
           value: {
-            kind: Kind.STRING,
-            value: imports.map(([alias, name]) =>
-              alias === name
-                ? name
-                : `${alias}: ${name}`
-            ).join(' ')
+            kind: Kind.LIST,
+            values: imports.map(([alias, name]) =>
+                alias === name
+                  ? { kind: Kind.STRING, value: name }
+                  : {
+                    kind: Kind.OBJECT,
+                    fields: [
+                      {
+                        kind: Kind.OBJECT_FIELD,
+                        name: { kind: Kind.NAME, value: "name" },
+                        value: { kind: Kind.STRING, value: name }
+                      },
+                      {
+                        kind: Kind.OBJECT_FIELD,
+                        name: { kind: Kind.NAME, value: "as" },
+                        value: { kind: Kind.STRING, value: alias }
+                      }
+                    ]
+                  }
+              )
           },
         })
       }

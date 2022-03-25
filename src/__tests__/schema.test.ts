@@ -271,7 +271,7 @@ describe("Schema", () => {
     const compiled = result.unwrap();
     expect([...compiled]).toMatchInlineSnapshot(`
       Array [
-        <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key") @link(url: "https://specs.apollo.dev/id/v1.0"),
+        <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"]) @link(url: "https://specs.apollo.dev/id/v1.0"),
         <#User>[subgraph] 👉type User @key(fields: "x y z") {,
         <https://specs.apollo.dev/link/v0.3#@>[link spec] 👉directive @link(url: Url!, as: Name, import: Imports),
         <https://specs.apollo.dev/federation/v1.0#@key>[fed spec] 👉directive @key(fields: FieldSet!) on OBJECT,
@@ -283,7 +283,7 @@ describe("Schema", () => {
     `);
 
     expect(raw(print(compiled.document))).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key") @link(url: "https://specs.apollo.dev/id/v1.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"]) @link(url: "https://specs.apollo.dev/id/v1.0")
 
       type User @key(fields: "x y z") {
         id: ID!

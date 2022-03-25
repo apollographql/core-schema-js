@@ -13,15 +13,12 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            gref: GRef.directive(
-              "key",
-              "https://specs.apollo.dev/federation"
-            ),
+            gref: GRef.directive("key", "https://specs.apollo.dev/federation"),
           },
-        ]),
+        ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "", import: "@key"),
+          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "", import: ["@key"]),
         ]
       `);
 
@@ -29,10 +26,7 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            gref: GRef.directive(
-              "key",
-              "https://specs.apollo.dev/federation"
-            ),
+            gref: GRef.directive("key", "https://specs.apollo.dev/federation"),
           },
 
           {
@@ -42,7 +36,7 @@ describe("Linker", () => {
         ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", import: "@key"),
+          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", import: ["@key"]),
         ]
       `);
 
@@ -50,20 +44,17 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            gref: GRef.directive(
-              "key",
-              "https://specs.apollo.dev/federation"
-            ),
+            gref: GRef.directive("key", "https://specs.apollo.dev/federation"),
           },
 
           {
             name: "fed",
             gref: GRef.schema("https://specs.apollo.dev/federation"),
           },
-        ]),
+        ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: "@key"),
+          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: ["@key"]),
         ]
       `);
     });
@@ -73,10 +64,7 @@ describe("Linker", () => {
         linker.synthesize([
           {
             name: "@key",
-            gref: GRef.directive(
-              "key",
-              "https://specs.apollo.dev/federation"
-            ),
+            gref: GRef.directive("key", "https://specs.apollo.dev/federation"),
           },
 
           {
@@ -93,11 +81,11 @@ describe("Linker", () => {
             name: "@joinType",
             gref: GRef.directive("type", "https://specs.apollo.dev/join"),
           },
-        ]),
+        ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: "@key"),
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/join", as: "", import: "Graph @joinType: @type"),
+          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: ["@key"]),
+          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/join", as: "", import: ["Graph", {name: "@type", as: "@joinType"}]),
         ]
       `);
     });
