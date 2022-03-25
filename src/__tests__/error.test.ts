@@ -1,5 +1,4 @@
-import err from '../error'
-import { GraphQLErrorExt } from "../error";
+import err, { GraphQLErrorExt } from '../error'
 
 describe("GraphQLErrorExt", () => {
   it("sets a code, name, and message", () => {

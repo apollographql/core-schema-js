@@ -15,10 +15,9 @@ export class LinkUrl {
     const parts = rsplit(path, '/')
 
     // the last two path components are (name)/(name or version)
-    const [nameVerPart, namePart] = [
-      parts.next().value ?? undefined,
-      parts.next().value ?? undefined
-    ]
+    const nameVerPart = parts.next().value ?? undefined
+    const namePart = parts.next().value ?? undefined
+
     const version = Version.parse(nameVerPart)
     const name = version ? parseName(namePart) : parseName(nameVerPart)
 

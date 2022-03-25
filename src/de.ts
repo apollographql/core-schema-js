@@ -93,8 +93,7 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
   while (notDefined.size) {
     const [ref, nodes] = notDefined.entries().next().value
     notDefined.delete(ref)
-    if (failed.has(ref)) continue
-    if (added.has(ref)) continue
+    if (failed.has(ref) || added.has(ref)) continue
     const defs = atlasDefs?.get(ref)
     if (!defs) {
       report(ErrNoDefinition(ref, ...nodes))

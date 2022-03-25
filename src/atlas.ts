@@ -3,13 +3,9 @@ import { byRef, Defs } from './de';
 import GRef from './gref';
 import Schema from './schema';
 
-export interface IAtlas extends Defs {
-
-}
-
-export class Atlas implements IAtlas {
+export class Atlas implements Defs {
   @use(recall)
-  static fromSchemas(...schemas: Schema[]): IAtlas {
+  static fromSchemas(...schemas: Schema[]): Atlas {
     return new this(schemas)
   }
 

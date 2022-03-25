@@ -58,7 +58,7 @@ expect([...schema.refs]).toMatchInlineSnapshot(`
 ```typescript
 import {Schema, Defs, GRef, directives} from '@apollo/core-schema'
 
-const doc = Schema.basic(gql `
+const schema = Schema.basic(gql `
   extend schema
     @link(url: "https://spec.example.io/hidden/v1.0", as: "private")
 
