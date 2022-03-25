@@ -1,241 +1,185 @@
-import { ASTNode, DirectiveLocation, DirectiveNode, DocumentNode, GraphQLDirective, GraphQLEnumType, GraphQLNonNull, GraphQLString, Kind, parse, SchemaDefinitionNode, Source } from 'graphql'
-import { getArgumentValues } from 'graphql/execution/values'
-import Core, { CoreFn, Context, Immutable } from './core'
-import { err } from './error'
-import FeatureUrl from './feature-url'
-import Features, { Feature } from './features'
-import { hasDirectives, hasName, isAst } from './is'
-import { getPrefix } from './names'
-
-export const ErrExtraSchema = (def: SchemaDefinitionNode) =>
-  err('ExtraSchema', {
-    message: 'extra schema definition ignored',
-    schemaDefinition: def,
-    nodes: [def]
-  })
-
-export const ErrNoSchema = () =>
-  err('NoSchema', 'no schema definitions found')
-
-export const ErrNoCore = (causes: Error[]) =>
-  err('NoCore', {
-    message: 'no core feature found',
-    causes
-  })
-
-export const ErrBadFeature = (node: DirectiveNode, ...causes: Error[]) =>
-  err('BadFeature', {
-    message: 'bad core feature request',
-    directive: node,
-    nodes: [node],
-    causes
-  })
-
-export const ErrOverlappingNames = (name: string, features: Feature[]) =>
-  err('OverlappingNames', {
-    message: `the name "${name}" is defined by multiple features`,
-    name,
-    features,
-    nodes: features.map(f => f.directive)
-  })
-
-export type CoreSchemaContext = Immutable<CoreSchema> & Context
-export class CoreSchema extends Core<DocumentNode> {
-  public static graphql(parts: TemplateStringsArray, ...replacements: any[]) {
-    return CoreSchema.fromSource(
-      new Source(String.raw.call(null, parts, ...replacements), '(inline graphql)'))
+import recall, { replay, use } from '@protoplasm/recall'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode } from 'graphql'
+import { Maybe } from 'graphql/jsutils/Maybe'
+import { refNodesIn, byRef, Defs, isLocatable, Locatable, fill, De } from './de'
+import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
+import directives from './directives'
+import { GRef } from './gref'
+import Scope, { including, IScope } from './scope'
+import { isAst } from './is'
+import gql from './gql'
+import LinkUrl from './link-url'
+export class Schema implements Defs {  
+  static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
+    if (frame instanceof Schema)
+      return new this(document, frame.scope)
+    return new this(document, frame)
   }
 
-  public static fromSource(source: Source) {
-    return new CoreSchema(parse(source))
-  }
+  static readonly BASIC = Schema.from(
+    gql `${'builtin:schema/basic'}
+      @link(url: "https://specs.apollo.dev/link/v0.3")
+      @link(url: "https://specs.graphql.org", import: """
+        @deprecated @specifiedBy
+        Int Float String Boolean ID
+      """)
+      @link(url: "https://specs.apollo.dev/id/v1.0")
+    `)
 
-  check(...fns: CoreFn<this>[]): this {
-    if (!fns.length) fns = [features, names]
-    return super.check(...fns)
-  }
-
-  get document(): DocumentNode { return this.data }
-  get schema(): SchemaDefinitionNode { return this.get(schema) }
-  get features(): Features { return this.get(features) }  
-  get names(): Map<string, Feature> { return this.get(names) }
-
-  *read(directive: GraphQLDirective | FeatureUrl | string, node: ASTNode): Generator<Item, void, unknown> {
-    const url =
-      directive instanceof FeatureUrl ? directive
-      : typeof directive === 'string' ? FeatureUrl.parse(directive)
-      : FeatureUrl.parse(directive.extensions?.specifiedBy)  
-    const name = this.features.documentName(url)
-    const feature = this.features.find(url)
-    const match = url.isDirective
-      // if we were given a directive url, match exactly that directive
-      ? (dir: DirectiveNode) => dir.name.value === name
-      // if we were given a feature url, collect all directives from
-      // that feature
-      : (dir: DirectiveNode) => this.featureFor(dir) === feature
-
-    if (!hasDirectives(node)) return
-    if (!feature) return
-    for (const d of node.directives) {
-      if (match(d)) {
-        const data = directive instanceof GraphQLDirective
-          ? getArgumentValues(directive, d)
-          : undefined
-        const item: Item = {
-          node,
-          directive: d,            
-          feature,
-          canonicalName: '@' + feature?.canonicalName(d.name.value),
-        }
-        if (data != null) item.data = data
-        yield item
-      }
-    }
-  }
-
-  featureFor(node: ASTNode): Feature | undefined {
-    if (!hasName(node)) return  
-    const [prefix] = getPrefix(node.name.value)
-    if (prefix || isAst(node, Kind.DIRECTIVE, Kind.DIRECTIVE_DEFINITION)) {
-      return this.names.get(prefix ?? node.name.value);
-    }
-    return
-  }
-}
-
-export default CoreSchema
-
-export function schema(this: CoreSchemaContext): SchemaDefinitionNode {
-  let schema: SchemaDefinitionNode | null = null
-  for (const def of this.document.definitions) {
-    if (def.kind === 'SchemaDefinition') {
-      if (!schema)
-        schema = def
-      else
-        this.report(ErrExtraSchema(def))
-    }
-  }
-  if (!schema) {
-    throw ErrNoSchema()
-  }
-  return schema
-}
-
-interface CoreArgs {
-  feature: string;
-  for?: "SECURITY" | "EXECUTION";
-  as?: string;
-}
-
-function isCoreArgs(maybeCoreArgs: unknown): maybeCoreArgs is CoreArgs {
-  return (
-    typeof maybeCoreArgs === "object" &&
-    maybeCoreArgs != null &&
-    "feature" in maybeCoreArgs
-  );
-}
-
-export function features(this: CoreSchemaContext): Features {
-  const schema = this.schema
-  this.pure(...schema.directives ?? [])
-  const noCoreErrors: Error[] = []
-  let coreFeature: Feature | null = null
-  const features = new Features
-  for (const d of schema.directives || []) {
-    if (!coreFeature) {
-      try {
-        const coreArgs = getArgumentValues($core, d);
-        if (isCoreArgs(coreArgs)) {
-          if (
-            CORE_VERSIONS.has(coreArgs.feature) &&
-            d.name.value === (coreArgs.as ?? "core")
-          ) {
-            const url = FeatureUrl.parse(coreArgs.feature);
-            coreFeature = new Feature(url, coreArgs.as ?? url.name, d);
-          }
-        } else {
-          throw new Error("Invalid arguments provided to core feature.");
-        }
-      } catch (err) {
-        noCoreErrors.push(err as Error);
-      }
-    }
-
-    if (coreFeature && d.name.value === coreFeature.name) {
-      try {
-        const coreArgs = getArgumentValues($core, d);
-        if (isCoreArgs(coreArgs)) {
-          const url = FeatureUrl.parse(coreArgs.feature);
-          features.add(
-            new Feature(url, coreArgs.as ?? url.name, d, coreArgs.for)
-          );
-        } else {
-          throw new Error("Invalid arguments provided to core feature.");
-        }
-      } catch (err) {
-        this.report(ErrBadFeature(d, err as Error));
-      }
-    }
-  }
-  if (!coreFeature) throw ErrNoCore(noCoreErrors)
-  this.report(...features.validate())
-  return features
-}
-
-export function names(this: CoreSchemaContext): Map<string, Feature> {
-  const {features} = this
-  this.pure(features)
-  const names: Map<string, Feature[]> = new Map
-  for (const feature of features) {
-    if (!names.has(feature.name)) names.set(feature.name, [])
-    names.get(feature.name)?.push(feature)
+  static basic(document: DocumentNode) {
+    return this.from(document, this.BASIC)
   }
   
-  const output: Map<string, Feature> = new Map
-  for (const [name, features] of names) {
-    if (features.length > 1) {
-      this.report(ErrOverlappingNames(name, features))
+  public get scope(): IScope {
+    return this.frame.child(
+      scope => {
+        for (const dir of directives(this.document)) {
+          const linker = Linker.from(scope, dir)
+          if (!linker) continue
+          for (const link of linker.links(dir)) {
+            scope.add(link)
+          }
+        }
+        const self = selfIn(scope, directives(this.document))
+        if (self) {
+          scope.add({
+            ...self,
+            name: ''
+          })
+          scope.add({
+            ...self,
+            name: '@' + self.name,
+            gref: GRef.rootDirective(self.gref.graph)
+          })
+        }
+      })
+  }
+
+  get url() { return this.scope.url }
+  get self() { return this.scope.self }
+
+  *[Symbol.iterator]() {
+    const {scope} = this
+    for (const def of this.document.definitions) {
+      if (isLocatable(def)) yield scope.denormalize(def)
+    }
+  }
+
+  @use(replay)
+  get refs() {
+    return refNodesIn(this)
+  }
+
+  definitions(ref?: GRef): Defs {
+    if (!ref) return this
+    if (this.url && !ref.graph) ref = ref.setGraph(this.url)
+    return byRef(this).get(ref) ?? []
+  }
+
+  locate(node: Locatable): GRef {
+    return this.scope.locate(node)
+  }
+
+  standardize(...urls: (LinkUrl | string)[]) {
+    const graphs = new Set(urls.map(u => LinkUrl.from(u)!))
+    const standard = Scope.create(scope => {
+      for (const graph of graphs) {
+        const {name} = graph
+        if (!name)
+          throw new Error('urls sent to standardize must have names')
+        scope.add({
+          name, gref: GRef.schema(graph)
+        })
+      }
+    })
+    const newScope = Scope.create((scope) => {
+      const flat = this.scope.flat
+      for (const link of flat) {
+        if (!graphs.has(link.gref.graph!)) scope.add(link);
+      }
+      for (const link of standard) scope.add(link);
+    });
+    return Schema.from({
+      kind: Kind.DOCUMENT,
+      definitions: [
+        ...newScope.renormalizeDefs([
+          ...newScope.header(),
+          ...pruneLinks(this)
+        ]),
+      ],
+    });    
+  }
+
+  compile(atlas?: Defs): Schema {
+    let flat = this.scope.flat
+    const directives = [...flat.linker?.synthesize(flat) ?? []]
+    let scope = flat
+    while (scope[Symbol.iterator]().next().value) {
+      scope = scope.child(including(refNodesIn(directives)))
+      directives.push(...scope.linker?.synthesize(scope) ?? [])
+    }
+    
+    const header: De<SchemaExtensionNode>[] = directives.length
+      ? [{
+          kind: Kind.SCHEMA_EXTENSION,
+          directives,
+          gref: GRef.schema(this.url)
+        }] : []
+    const extras = [...fill([...header, ...this], atlas)]
+    scope = scope.child(including(refNodesIn(extras))).flat
+    
+    const finalDirs = [...scope.linker?.synthesize(scope) ?? []]
+    const hdr: Defs = directives.length
+      ? [{
+          kind: Kind.SCHEMA_EXTENSION,
+          directives: finalDirs,
+          gref: GRef.schema(this.url)
+        }] : []
+
+    return Schema.from({
+      kind: Kind.DOCUMENT,
+      definitions: [
+        ...scope.renormalizeDefs([
+          ...hdr,
+          ...pruneLinks(this),
+          ...extras
+        ])
+      ]
+    })
+  }
+
+  print(): string {
+    return print(this.document)
+  }
+
+  protected constructor(
+    public readonly document: DocumentNode,
+    public readonly frame: IScope,
+  ) {}
+}
+
+export default Schema
+
+const selfIn = recall(
+  function self(scope: IScope, directives: Iterable<DirectiveNode>): Maybe<Link> {
+    for (const dir of directives) {
+      const self = id(scope, dir)
+      if (self) return self
+    }
+    return null
+  }
+)
+
+export function *pruneLinks(defs: Defs): Defs {
+  for (const def of defs) {
+    if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
+      if (!def.directives) yield def
+      const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has(dir.gref))
+      if (!directives?.length && !def.operationTypes?.length && !(def as SchemaDefinitionNode).description)
+        continue
+      yield { ...def, directives }
       continue
     }
-    output.set(name, features[0])
-  }
-  return output
-}
-
-export interface Item {
-  node: ASTNode
-  directive: DirectiveNode,
-  feature: Feature,
-  canonicalName: string,
-  data?: any
-}
-
-const CORE_VERSIONS = new Set([
-  'https://specs.apollo.dev/core/v0.1',
-  'https://specs.apollo.dev/core/v0.2',
-])
-
-const Purpose = new GraphQLEnumType({
-  name: 'core__Purpose',
-  values: {
-    SECURITY: {},
-    EXECUTION: {},
-  },
-})
-
-const $core = new GraphQLDirective({
-  name: "core",
-  args: {
-    feature: { type: new GraphQLNonNull(GraphQLString) },
-    as: { type: GraphQLString },
-    for: { type: Purpose },
-  },
-  locations: [DirectiveLocation.SCHEMA],
-  isRepeatable: true,
-});
-
-declare module 'graphql' {
-  interface GraphQLDirectiveExtensions {
-    specifiedBy: string;
+    yield def
   }
 }

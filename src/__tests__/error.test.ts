@@ -1,10 +1,11 @@
-import { ErrCheckFailed } from "../core";
-import { GraphQLErrorExt } from "../error";
+import err, { GraphQLErrorExt } from '../error'
 
 describe("GraphQLErrorExt", () => {
-  it("correctly self-assigns its name property", () => {
-    const error = ErrCheckFailed([]);
-    expect(error.name).toEqual("CheckFailed");
+  it("sets a code, name, and message", () => {
+    const error = err('SomethingWentWrong', 'it is very bad')
+    expect(error.name).toEqual("SomethingWentWrong");
+    expect(error.code).toEqual(error.name);
+    expect(error.message).toEqual("it is very bad");
   });
 
   it("calling `toString` doesn't throw an error", () => {

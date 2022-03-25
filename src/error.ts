@@ -1,5 +1,5 @@
-import { ASTNode, GraphQLError, Source } from "graphql";
-import { Maybe } from "graphql/jsutils/Maybe";
+import { ASTNode, GraphQLError, Source } from 'graphql'
+import { Maybe } from 'graphql/jsutils/Maybe'
 
 export type Props = {
   message: string;
@@ -20,32 +20,20 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
   readonly name: string;
 
   constructor(public readonly code: C, message: string, props?: Props) {
-    super(
-      message,
-      props?.nodes,
-      props?.source,
-      props?.positions,
-      props?.path,
-      props?.originalError,
-      props?.extensions
-    );
-    if (props)
-      for (const prop in props) {
-        if (!GraphQLErrorExt.BASE_PROPS.has(prop)) {
-          (this as any)[prop] = (props as any)[prop];
-        }
+    super(message, props)
+    if (props) for (const prop in props)
+      if (!GraphQLErrorExt.BASE_PROPS.has(prop)) {
+        (this as any)[prop] = (props as any)[prop]
       }
 
-    this.name = code;
+    this.name = code
+    this.extensions.code = code
   }
 
-  throw(): never {
-    throw this;
-  }
-
-  toString(): string {
-    let output = `[${this.code}] ${super.toString()}`;
-    const causes = (this as any).causes;
+  throw(): never { throw this }
+  toString() {
+    let output = `[${this.code}] ${super.toString()}`
+    const causes = (this as any).causes
     if (causes && causes.length) {
       output += "\ncaused by:";
       for (const cause of (this as any).causes || []) {
@@ -84,4 +72,4 @@ export function err<C extends string, P extends Props>(
   return error as any;
 }
 
-export default err;
+export default err
