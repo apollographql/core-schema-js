@@ -10,6 +10,7 @@
 - Support for `@link(url:, import:)`. Reading schemas with legacy `@core` directives is still supported.
 - Compile definitions into schemas. Use `schema.compile(atlas?)` to find any definitions from `atlas` into `schema`
 - Report non-fatal errors with `report`, get them with `getResult`. Example: `getResult(() => runMyValidations(schema.compile(atlas))).errors()` will yield all errors which occurred during compilation or validation.
+- Add support for Node 17 [PR #41](https://github.com/apollographql/core-schema-js/pull/41)
 ## v0.2.2
 - Don't call `GraphQLError.toString()` recursively [PR #36](https://github.com/apollographql/core-schema-js/pull/36)
 
