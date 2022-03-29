@@ -1,7 +1,7 @@
 import recall, { replay, use } from '@protoplasm/recall'
 import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refNodesIn, byRef, Defs, isLocatable, Locatable, fill, De } from './de'
+import { refNodesIn, byGref, Defs, isLocatable, Locatable, fill, De } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
 import { GRef } from './gref'
@@ -73,7 +73,7 @@ export class Schema implements Defs {
   definitions(ref?: GRef): Defs {
     if (!ref) return this
     if (this.url && !ref.graph) ref = ref.setGraph(this.url)
-    return byRef(this).get(ref) ?? []
+    return byGref(this).get(ref) ?? []
   }
 
   locate(node: Locatable): GRef {

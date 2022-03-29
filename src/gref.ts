@@ -1,4 +1,5 @@
 import recall, { use } from '@protoplasm/recall'
+import { groupBy } from './each'
 import LinkUrl from './link-url'
 
 export class GRef {
@@ -40,3 +41,12 @@ export class GRef {
 }
 
 export default GRef
+
+export interface HasGref {
+  gref: GRef
+}
+
+/**
+ * group detached nodes (or anything with an 'hgref' really )
+ */
+export const byGref = groupBy((node: HasGref) => node.gref)

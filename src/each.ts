@@ -1,9 +1,49 @@
-import recall from "@protoplasm/recall"
+import recall, { Recall } from "@protoplasm/recall"
+import err from "./error"
 
 type ItemType<G extends (item: any) => any> = Parameters<G>[0]
+type ElementType<I extends Iterable<any>> = I extends Iterable<infer T> ? T : never
 
-export const groupBy = recall (
-  <G extends (item: any) => any>(grouper: G) => {
+const ErrEmpty = (iterable?: Iterable<any>) =>
+  err('Empty', {
+    message: 'expected at least one value, found zero',
+    iterable
+  })
+
+const ErrTooMany = (iterable: Iterable<any>) =>
+  err('TooMany', {
+    message: 'expected at most one value, found more',
+    iterable
+  })
+
+export function only<I extends Iterable<any>>(iter?: I): ElementType<I> {  
+  if (!iter) throw ErrEmpty(iter)
+  const it = iter[Symbol.iterator]()
+  const r = it.next()
+  if (r.done) throw ErrEmpty(iter)
+  try {
+    return r.value
+  } finally {
+    if (!it.next().done)
+      throw ErrTooMany(iter)
+  }
+}
+
+export function maybe<I extends Iterable<any>>(iter?: I): ElementType<I> | undefined {  
+  if (!iter) return
+  const it = iter[Symbol.iterator]()
+  const r = it.next()
+  if (r.done) return
+  try {
+    return r.value
+  } finally {
+    if (!it.next().done)
+      throw ErrTooMany(iter)
+  }
+}
+
+export const groupBy: Recall<<G extends (item: any) => any>(grouper: G) => <T extends ItemType<G>>(...sources: Iterable<T>[]) => Readonly<Map<ReturnType<G>, Iterable<T>>>> = recall (
+  <G extends (item: any) => any>(grouper: G): <T extends ItemType<G>>(...sources: Iterable<T>[]) => Readonly<Map<ReturnType<G>, Iterable<T>>> => {
     const groupSources = recall(
       <T extends ItemType<G>>(...sources: Iterable<T>[]): Readonly<Map<ReturnType<G>, Iterable<T>>> => {
         if (sources.length === 0) return Object.freeze(new Map)

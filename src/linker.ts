@@ -1,14 +1,16 @@
-import recall, { replay, use } from '@protoplasm/recall'
-import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode, NameNode } from 'graphql'
+import recall, { replay, report, use } from '@protoplasm/recall'
+import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode, NameNode, ASTNode } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
 import type { IScope } from './scope'
 import {LinkUrl} from './link-url'
-import { GRef } from './gref'
+import { GRef, HasGref } from './gref'
 import { scopeNameFor } from './names'
-import { groupBy } from './each'
-import { De, HasGref } from './de'
+import { groupBy, maybe, only } from './each'
+import { De } from './de'
+import { isAst } from './is'
+import err from './error'
 
 const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/core/v0.1', 'feature'],
@@ -44,6 +46,12 @@ const Name = new GraphQLScalarType({
   }
 })
 
+export const ErrBadImport = (node: ASTNode, expectedKinds: ASTNode["kind"][]) =>
+  err('BadImport', {
+    message: `expected node of kind ${expectedKinds.join(' | ')}, got ${node.kind}`,    
+    node, expectedKinds
+  })
+
 const Imports = new GraphQLScalarType({
   name: 'Imports',
   parseValue: val => val,
@@ -53,10 +61,19 @@ const Imports = new GraphQLScalarType({
         if (value.kind === Kind.STRING)
           return value.value
         if (value.kind === Kind.OBJECT) {
-          const name = byName(value.fields).get('name')[0].value.value
-          const alias = byName(value.fields).get('as')[0].value.value
-          if (alias && alias !== name)
-            return `${alias}: ${name}`
+          const name = only(byName(value.fields).get('name')).value
+          const alias = maybe(byName(value.fields).get('as'))?.value
+          if (!isAst(name, Kind.STRING, Kind.ENUM)) {
+            report(ErrBadImport(name, [Kind.STRING, Kind.ENUM]))
+            return
+          }
+          if (alias && !isAst(alias, Kind.STRING, Kind.ENUM)) {
+            report(ErrBadImport(alias, [Kind.STRING, Kind.ENUM]))
+            return
+          }
+          if (alias && alias.value !== name.value)
+            return `${alias.value}: ${name.value}`
+          return name.value
         }
         return undefined
       }).filter(Boolean).join(' ')

@@ -13,10 +13,6 @@ export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
     nodes
   })
 
-export interface HasGref {
-  gref: GRef
-}
-
 /**
  * A detatched (or denormalized) AST node. Detached nodes have an `gref'
  * property which holds their location within the global graph. This makes them
@@ -58,11 +54,6 @@ export type Located = Locatable & HasGref
 
 
 /**
- * group detached nodes (or anything with an 'hgref' really )
- */
-export const byRef = groupBy(<T extends HasGref>(node: T) => node.gref)
-
-/**
  * Complete `source` definitions with definitions from `atlas`.
  *
  * Emits the set of defs to be added.
@@ -76,11 +67,11 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
   const notDefined = new Map<GRef, Locatable[]>()
   const failed = new Set<GRef>()
   const added = new Set<GRef>()
-  const atlasDefs = atlas ? byRef(atlas) : null
+  const atlasDefs = atlas ? byGref(atlas) : null
 
   const ingest = (defs: Defs) => {
     for (const node of refNodesIn(defs)) {
-      const defs = byRef(source).get(node.gref)
+      const defs = byGref(source).get(node.gref)
       if (!defs && !added.has(node.gref) && node.gref.graph !== LinkUrl.GRAPHQL_SPEC)
         if (notDefined.has(node.gref))
           notDefined.get(node.gref)!.push(node)
