@@ -1,6 +1,6 @@
 import recall, { use } from '@protoplasm/recall'
-import { byGref, Defs } from './de';
-import GRef from './gref';
+import { Defs } from './de';
+import GRef, { byGref } from './gref';
 import Schema from './schema';
 
 export class Atlas implements Defs {

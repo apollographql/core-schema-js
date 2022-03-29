@@ -1,8 +1,7 @@
 import { replay, report } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, Kind, NamedTypeNode } from 'graphql'
-import { groupBy } from './each'
 import err from './error'
-import GRef from './gref'
+import GRef, { byGref, HasGref } from './gref'
 import { isAst } from './is'
 import LinkUrl from './link-url'
 
