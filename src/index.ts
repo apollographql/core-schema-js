@@ -6,6 +6,10 @@ export {LinkUrl} from './link-url'
 export {Version} from './version'
 export {GRef, byGref} from './gref'
 
+export {schemaDefinitions, directives} from './directives'
+
+export {groupBy, only, maybe} from './each'
+export {isAst, hasName, byName, byKind, toDefinitionKind} from './is'
 export {gql} from './gql'
 export {getResult, report} from '@protoplasm/recall'
 

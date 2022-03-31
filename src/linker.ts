@@ -1,5 +1,5 @@
 import recall, { replay, report, use } from '@protoplasm/recall'
-import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode, NameNode, ASTNode } from 'graphql'
+import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode, ASTNode } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
@@ -9,7 +9,7 @@ import { GRef, HasGref } from './gref'
 import { scopeNameFor } from './names'
 import { groupBy, maybe, only } from './each'
 import { De } from './de'
-import { isAst } from './is'
+import { byName, isAst } from './is'
 import err from './error'
 
 const LINK_SPECS = new Map([
@@ -83,8 +83,6 @@ const Imports = new GraphQLScalarType({
     return ImportsParser.fromString(value.value)
   }
 })
-
-const byName = groupBy((field: { name: NameNode }) => field.name.value)
 
 const $bootstrap = new GraphQLDirective({
   name: 'link',

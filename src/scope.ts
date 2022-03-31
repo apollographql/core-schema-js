@@ -25,7 +25,7 @@ export interface IScope extends Iterable<Link> {
   entries(): Iterable<[string, Link]>
   header(): Defs
   locate(node: Locatable): GRef
-  rLocate(node: Located): [string | null, string] | undefined
+  name(node: GRef): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
   renormalizeDefs(defs: Defs): Iterable<Def>
   child(fn: (scope: IScopeMut) => void): Readonly<IScope>
@@ -85,12 +85,12 @@ export class Scope implements IScope {
     return []
   }
 
-  rLocate(node: Located): [string | null, string] | undefined {
-    const bareName = this.reverse.lookup(node.gref)
+  name(gref: GRef): [string | null, string] | undefined {
+    const bareName = this.reverse.lookup(gref)
     if (bareName) return [null, bareName]
 
-    const prefix = this.reverse.lookup(node.gref.setName(''))
-    if (prefix) return [prefix, node.gref.name]
+    const prefix = this.reverse.lookup(gref.setName(''))
+    if (prefix) return [prefix, gref.name]
 
     return
   }
@@ -101,6 +101,7 @@ export class Scope implements IScope {
     return visit(node, {
       enter<T extends ASTNode>(node: T, _: any, ): De<T> | undefined {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
+        if (isAst(node, Kind.ENUM_VALUE_DEFINITION)) return
         if (isLocatable(node)) {
           return { ...node, gref: self.locate(node) } as De<T>
         }
@@ -116,7 +117,7 @@ export class Scope implements IScope {
       enter<T extends ASTNode>(node: T, _: any, ): T | null | undefined {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
         if (!hasName(node) || !isLocated(node)) return
-        const path = self.rLocate(node)
+        const path = self.name(node.gref)
         if (!path) return
         return {
           ...node,
@@ -192,21 +193,21 @@ export default Scope
  * const scope = Scope.create(including(someRefs))
  * ```
  *
- * The resulting Scope will be able to rLocate all refs
+ * The resulting Scope will be able to `name` all refs
  * provided.
  *
  * @param refs
  */
 export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
-  for (const ref of refs) {
-    const graph = ref.gref.graph
+  for (const node of refs) {
+    const graph = node.gref.graph
     if (!graph) continue
-    const found = scope.rLocate(ref)
+    const found = scope.name(node.gref)
     if (found) continue
     for (const name of graph.suggestNames()) {
       if (scope.has(name)) continue
       scope.add({
-        name, gref: ref.gref.setName('')
+        name, gref: node.gref.setName('')
       })
       break
     }

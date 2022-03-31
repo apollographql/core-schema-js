@@ -5,6 +5,13 @@ import GRef, { byGref, HasGref } from './gref'
 import { isAst } from './is'
 import LinkUrl from './link-url'
 
+/**
+ * A reference could not be matched to a definition.
+ * 
+ * @param gref 
+ * @param nodes 
+ * @returns ErrNoDefinition
+ */
 export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
   err('NoDefinition', {
     message: 'no definitions found for reference',
