@@ -1,3 +1,4 @@
+// import './ast'
 export {Schema as default} from './schema'
 export {Schema} from './schema'
 export {Atlas} from './atlas'
