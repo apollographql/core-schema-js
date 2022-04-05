@@ -48,8 +48,17 @@ export type De<T> =
     :
   T
 
-export type Def = De<DefinitionNode>
+export type Def = De<DefinitionNode> | Redirect
 export type Defs = Iterable<Def>
+
+export interface Redirect {
+  kind: 'Redirect'
+  gref: GRef
+  toGref: GRef
+  via?: De<DirectiveNode>
+}
+
+export const isRedirect = (o: any): o is Redirect => o?.kind === 'Redirect'
 
 export type Locatable =
   | DefinitionNode
@@ -77,6 +86,11 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
 
   const ingest = (defs: Defs) => {
     for (const node of refNodesIn(defs)) {
+      if (isRedirect(node)) {
+        report(node)
+        // todo: query redirect
+        continue
+      }
       const defs = byGref(source).get(node.gref)
       if (!defs && !added.has(node.gref) && node.gref.graph !== LinkUrl.GRAPHQL_SPEC)
         if (notDefined.has(node.gref))
@@ -103,9 +117,11 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
   }
 }
 
-export function *refNodesIn(defs: Defs | Iterable<ASTNode>): Iterable<Located> {
-  for (const def of defs)
-    yield* deepRefs(def)
+export function *refNodesIn(defs: Defs | Iterable<ASTNode>): Iterable<Located | Redirect> {
+  for (const def of defs) {
+    if (isRedirect(def)) yield def
+    else yield* deepRefs(def)
+  }
 }
 
 export const deepRefs: (root: ASTNode | ASTNode[]) => Iterable<Located> = replay(

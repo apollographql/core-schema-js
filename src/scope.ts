@@ -1,7 +1,7 @@
 import recall, { use } from '@protoplasm/recall'
-import { ASTNode, Kind, visit } from 'graphql'
+import { ASTNode, DefinitionNode, Kind, visit } from 'graphql'
 import { Linker, type Link } from './linker'
-import { De, Def, Defs, hasRef, isLocatable, isLocated, Locatable, Located } from './de'
+import { De, Defs, hasRef, isLocatable, isLocated, isRedirect, Locatable, Located, Redirect } from './de'
 import GRef from './gref'
 import { isAst, hasName } from './is'
 import LinkUrl from './link-url'
@@ -27,7 +27,7 @@ export interface IScope extends Iterable<Link> {
   locate(node: Locatable): GRef
   name(node: GRef): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
-  renormalizeDefs(defs: Defs): Iterable<Def>
+  renormalizeDefs(defs: Defs): Iterable<DefinitionNode>
   child(fn: (scope: IScopeMut) => void): Readonly<IScope>
 }
 
@@ -127,9 +127,10 @@ export class Scope implements IScope {
     }) as T
   }
 
-  *renormalizeDefs(defs: Defs): Iterable<Def> {
+  *renormalizeDefs(defs: Defs): Iterable<DefinitionNode> {
     for (const def of defs)
-      yield this.renormalize(def)
+      if (isRedirect(def)) continue
+      else yield this.renormalize(def)
   }
 
   *[Symbol.iterator]() {
@@ -198,8 +199,8 @@ export default Scope
  *
  * @param refs
  */
-export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
-  for (const node of refs) {
+export const including = (refs: Iterable<Located | Redirect>) => (scope: IScopeMut) => {
+  for (const node of refs) {    
     const graph = node.gref.graph
     if (!graph) continue
     const found = scope.name(node.gref)
