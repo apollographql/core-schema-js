@@ -1,8 +1,8 @@
 import recall, { use } from '@protoplasm/recall'
-import { ASTNode, Kind, visit } from 'graphql'
+import { ASTNode, DefinitionNode, Kind, visit } from 'graphql'
 import { Linker, type Link } from './linker'
-import { De, Def, Defs, hasRef, isLocatable, isLocated, Locatable, Located } from './de'
-import GRef from './gref'
+import { isRedirect, Defs, hasRef, isLocatable, Locatable, Redirect } from './de'
+import GRef, { HasGref } from './gref'
 import { isAst, hasName } from './is'
 import LinkUrl from './link-url'
 import { getPrefix, scopeNameFor, toPrefixed } from './names'
@@ -26,8 +26,8 @@ export interface IScope extends Iterable<Link> {
   header(): Defs
   locate(node: Locatable): GRef
   name(node: GRef): [string | null, string] | undefined
-  denormalize<T extends ASTNode>(node: T): De<T>
-  renormalizeDefs(defs: Defs): Iterable<Def>
+  denormalize<T extends ASTNode>(node: T): T & HasGref
+  renormalizeDefs(defs: Defs): Iterable<DefinitionNode>
   child(fn: (scope: IScopeMut) => void): Readonly<IScope>
 }
 
@@ -96,40 +96,41 @@ export class Scope implements IScope {
   }
 
   @use(recall)
-  denormalize<T extends ASTNode>(node: T): De<T> {
+  denormalize<T extends ASTNode>(node: T): T & HasGref {
     const self = this
     return visit(node, {
-      enter<T extends ASTNode>(node: T, _: any, ): De<T> | undefined {
+      enter<T extends ASTNode>(node: T, _: any, ): T | undefined {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
         if (isAst(node, Kind.ENUM_VALUE_DEFINITION)) return
         if (isLocatable(node)) {
-          return { ...node, gref: self.locate(node) } as De<T>
+          return { ...node, gref: self.locate(node) }
         }
         return
       }
-    }) as De<T>
+    }) as T & HasGref
   }
 
   @use(recall)
-  renormalize<T extends ASTNode>(node: De<T>): T {
+  renormalize<T extends ASTNode>(node: T): T {
     const self = this
     return visit(node, {
       enter<T extends ASTNode>(node: T, _: any, ): T | null | undefined {
-        if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
-        if (!hasName(node) || !isLocated(node)) return
+        if (!hasName(node) || !hasRef(node)) return
         const path = self.name(node.gref)
         if (!path) return
         return {
           ...node,
-          name: { ...node.name, value: toPrefixed(path) }
+          name: { ...node, value: toPrefixed(path) }
         }
       }
     }) as T
   }
 
-  *renormalizeDefs(defs: Defs): Iterable<Def> {
-    for (const def of defs)
+  *renormalizeDefs(defs: Defs): Iterable<DefinitionNode> {
+    for (const def of defs) {
+      if (isRedirect(def)) continue
       yield this.renormalize(def)
+    }
   }
 
   *[Symbol.iterator]() {
@@ -198,8 +199,10 @@ export default Scope
  *
  * @param refs
  */
-export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
+export const including = (refs: Iterable<Locatable | Redirect>) => (scope: IScopeMut) => {
   for (const node of refs) {
+    if (isRedirect(node)) continue // TODO, maybe incorporate redirects into scope
+    if (!node.gref) continue
     const graph = node.gref.graph
     if (!graph) continue
     const found = scope.name(node.gref)

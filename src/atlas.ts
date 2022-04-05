@@ -1,9 +1,13 @@
 import recall, { use } from '@protoplasm/recall'
-import { Defs } from './de';
+import { Def, Defs, Redirect } from './de';
 import GRef, { byGref } from './gref';
 import Schema from './schema';
 
-export class Atlas implements Defs {
+export interface IAtlas {
+  definitions(ref: GRef): Iterable<Def | Redirect>
+}
+
+export class Atlas implements IAtlas, Defs {
   @use(recall)
   static fromSchemas(...schemas: Schema[]): Atlas {
     return new this(schemas)
@@ -16,7 +20,7 @@ export class Atlas implements Defs {
 
   *[Symbol.iterator]() {
     for (const schema of this.schemas)
-      yield* schema.definitions()
+      yield *schema
   }
 
   constructor(public readonly schemas: Schema[]) {}

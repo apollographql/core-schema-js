@@ -1,8 +1,10 @@
 import { getResult } from "@protoplasm/recall";
 import { parse, Source } from "graphql";
 import { fill, refNodesIn } from "../de";
+import gql from "../gql";
 import GRef from "../gref";
 import Schema from "../schema";
+import raw from "../snapshot-serializers/raw";
 
 const base = Schema.from(
   parse(
@@ -51,7 +53,7 @@ describe("fill", () => {
   });
 
   it("reports errors", () => {
-    const result = getResult(() => [...fill(schema, base)])
+    const result = getResult(() => [...fill(schema, base)]);
     expect(
       [...result.errors()]
         .map((e: any) => e.code)
@@ -188,10 +190,9 @@ describe("a subgraph test", () => {
     `);
 
     expect(
-      [
-        ...getResult(() => [...fill(schema, LINK)])
-          .errors(),
-      ].map((x) => (x as any).nodes)
+      [...getResult(() => [...fill(schema, LINK)]).errors()].map(
+        (x) => (x as any).nodes
+      )
     ).toMatchInlineSnapshot(`
       Array [
         Array [
@@ -202,6 +203,32 @@ describe("a subgraph test", () => {
           <#Int>[GraphQL request] price: 👉Int,
         ],
       ]
+    `);
+  });
+});
+
+describe("fill", () => {
+  const atlas = Schema.basic(gql`
+    @id(url: "https://example.dev/zoo")
+    @link(url: "https://example.dev/aardvark")
+    @link(url: "https://example.dev/zebra")
+
+    directive @aardvark on OBJECT
+    directive @zebra on OBJECT
+  `);
+
+  it("handles transitive @links", () => {
+    const schema = Schema.basic(gql`
+      @link(url: "https://example.dev/zoo", import: "@aardvark @zebra")
+
+      type Query @aardvark @zebra
+    `)
+    const result = getResult(() => schema.compile(atlas))
+    expect([...result.errors()]).toEqual([])
+    expect(raw(result.unwrap().print())).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://example.dev/zoo", import: ["@aardvark", "@zebra"]) @link(url: "https://specs.apollo.dev/id/v1.0")
+
+      type Query @aardvark @zebra
     `);
   });
 });

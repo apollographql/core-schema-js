@@ -42,6 +42,10 @@ export function maybe<I extends Iterable<any>>(iter?: I): ElementType<I> | undef
   }
 }
 
+export function first<I extends Iterable<any>>(iter?: I): ElementType<I> | undefined {
+  return iter?.[Symbol.iterator]().next().value
+}
+
 export const groupBy: Recall<<G extends (item: any) => any>(grouper: G) => <T extends ItemType<G>>(...sources: Iterable<T>[]) => Readonly<Map<ReturnType<G>, Iterable<T>>>> = recall (
   <G extends (item: any) => any>(grouper: G): <T extends ItemType<G>>(...sources: Iterable<T>[]) => Readonly<Map<ReturnType<G>, Iterable<T>>> => {
     const groupSources = recall(

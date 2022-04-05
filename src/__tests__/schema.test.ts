@@ -304,6 +304,32 @@ describe("Schema", () => {
     `);
   });
 
+  it("compiles a schema with only implicit links", () => {
+    const atlas = Schema.basic(gql`
+      @id(url: "https://specs.apollo.dev/id/v1.0")
+      @link(url: "https://specs.apollo.dev/link/v0.3")
+      
+      directive @id(url: String!) on SCHEMA
+      directive @link(url: String, as: link__Name, import: link__Imports)
+        repeatable on SCHEMA
+    `);
+
+    const compiled = Schema.basic(
+      gql`
+      @id(url: "https://example.com/self")
+    `
+    ).compile(atlas);
+    expect(raw(compiled.print())).toMatchInlineSnapshot(`
+      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @id(url: "https://example.com/self") @link(url: "https://specs.apollo.dev/id/v1.0")
+
+      extend schema @id(url: "https://example.com/self")
+
+      directive @link(url: String, as: link__Name, import: link__Imports) repeatable on SCHEMA
+
+      directive @id(url: String!) on SCHEMA
+    `);
+  });
+
   it("returns standardized versions", () => {
     const subgraph = Schema.basic(gql`${"subgraph"}
       @link(url: "https://specs.apollo.dev/federation/v2.0",

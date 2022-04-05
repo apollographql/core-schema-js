@@ -8,7 +8,6 @@ import {LinkUrl} from './link-url'
 import { GRef, HasGref } from './gref'
 import { scopeNameFor } from './names'
 import { groupBy, maybe, only } from './each'
-import { De } from './de'
 import { byName, isAst } from './is'
 import err from './error'
 
@@ -195,7 +194,7 @@ export class Linker {
     }    
   }
 
-  *synthesize(links: Iterable<Link>): Iterable<De<ConstDirectiveNode>> {
+  *synthesize(links: Iterable<Link>): Iterable<ConstDirectiveNode> {
     const linksByUrl = byUrl(links)
     const urls = [...linksByUrl.keys()].sort(
       (a, b) =>
@@ -206,7 +205,7 @@ export class Linker {
       if (!url) continue      
       if (url === LinkUrl.GRAPHQL_SPEC) continue
       const linksForUrl = linksByUrl.get(url)!
-      let alias: string = ''
+      let alias: string | null = null
       const imports: [string, string][] = []
       for (const link of linksForUrl) {
         if (!link.gref.name) {
@@ -231,7 +230,27 @@ export class Linker {
         },
       }]
 
-      if (alias === '' || alias !== url.name) {
+      if (alias === '') {
+        yield {
+          kind: Kind.DIRECTIVE,
+          name: { kind: Kind.NAME, value: "id" },
+          arguments:  [{
+            kind: Kind.ARGUMENT,
+            name: {
+              kind: Kind.NAME,
+              value: "url"
+            },
+            value: {
+              kind: Kind.STRING,
+              value: url.href,
+            },
+          }],
+          gref: ID_DIRECTIVE,
+        }
+        continue
+      }
+
+      if (alias && alias !== url.name) {
         args.push({
           kind: Kind.ARGUMENT,
           name: {
