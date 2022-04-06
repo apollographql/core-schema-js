@@ -1,5 +1,5 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit, BREAK } from 'graphql'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { refNodesIn, Defs, isLocatable, Locatable, fill, Def } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
@@ -19,7 +19,7 @@ export class Schema implements Defs {
 
   static readonly BASIC = Schema.from(
     gql `${'builtin:schema/basic'}
-      @link(url: "https://specs.apollo.dev/link/v0.3")
+      @link(url: "https://specs.apollo.dev/link/v1.0")
       @link(url: "https://specs.graphql.org", import: """
         @deprecated @specifiedBy
         Int Float String Boolean ID
@@ -150,15 +150,16 @@ export class Schema implements Defs {
       const name = this.scope.name(ref.gref)
       if (!ref.gref.graph || !name) continue
       const [prefix, bare] = name
-      const link = scope.lookup(prefix ?? bare)      
+      const link = scope.lookup(prefix ?? bare)
       if (!link?.via) continue
       safe.add(link.via)
     }
-    const candidates = new Set([...this.scope].map(link => link.via))
+    const candidates = new Set([...this.scope].map(link => link.via!).filter(Boolean))
     return Schema.from(visit(this.document, {
       Directive(dir) {
-        if (!candidates.has(dir)) return BREAK
+        if (!candidates.has(dir)) return undefined
         if (!safe.has(dir)) return null
+        return undefined
       }
     }), this.scope.parent)
   }

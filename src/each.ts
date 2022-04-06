@@ -37,7 +37,14 @@ export function only<I extends Iterable<any>>(iter?: I): ElementType<I> {
   }
 }
 
-export function maybe<I extends Iterable<any>>(iter?: I): ElementType<I> | undefined {  
+export function maybe<I extends Iterable<any>>(iter?: I): ElementType<I> | undefined {
+  if (!iter) return undefined
+  const it = iter[Symbol.iterator]()
+  const r = it.next()  
+  return r.value
+}
+
+export function maybeOne<I extends Iterable<any>>(iter?: I): ElementType<I> | undefined {  
   if (!iter) return
   const it = iter[Symbol.iterator]()
   const r = it.next()

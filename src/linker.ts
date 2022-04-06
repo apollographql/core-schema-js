@@ -7,7 +7,7 @@ import type { IScope } from './scope'
 import {LinkUrl} from './link-url'
 import { GRef, HasGref } from './gref'
 import { scopeNameFor } from './names'
-import { groupBy, maybe, only } from './each'
+import { groupBy, maybeOne, only } from './each'
 import { De } from './de'
 import { byName, isAst } from './is'
 import err from './error'
@@ -65,7 +65,7 @@ const Imports = new GraphQLScalarType({
           return value.value
         if (value.kind === Kind.OBJECT) {
           const name = only(byName(value.fields).get('name')).value
-          const alias = maybe(byName(value.fields).get('as'))?.value
+          const alias = maybeOne(byName(value.fields).get('as'))?.value
           if (!isAst(name, Kind.STRING, Kind.ENUM)) {
             report(ErrBadImport(name, [Kind.STRING, Kind.ENUM]))
             return
@@ -75,7 +75,7 @@ const Imports = new GraphQLScalarType({
             return
           }
           if (alias && alias.value !== name.value)
-            return `${alias.value}: ${name.value}`
+            return `${alias.value} : ${name.value}`
           return name.value
         }
         return undefined
@@ -227,7 +227,7 @@ export class Linker {
           continue // root directive is implict
         imports.push([link.name, link.gref.name])
       }
-      
+
       const args: ConstArgumentNode[] = [{
         kind: Kind.ARGUMENT,
         name: {
