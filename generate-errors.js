@@ -4,21 +4,23 @@ const readdir = require('util').promisify(fs.readdir)
 const write = require('util').promisify(fs.writeFile)
 const exec = require('util').promisify(require('child_process').exec)
 
-const OUTPUT = path.join(__dirname, 'src', 'errors.ts')
+const DIR = path.resolve(process.argv[2]) || __dirname
+const OUTPUT = path.join(DIR, 'src', 'errors.ts')
 
 const allErrors = new Map
-const allModules = new Map
 
 async function main() {
-  for (const file of await readdir(path.join(__dirname, 'dist'))) {
+  for await (const file of walk(path.join(DIR, 'dist'))) {
     if (!file.endsWith('.js')) continue
     
     // the index file re-exports some errors, ignore it
     if (file === 'index.js') continue
 
-    const modulePath = './' + path.join('dist', path.basename(file, '.js'))
-    const sourcePath = './' + modulePath.slice('./dist/'.length)
-    const mod = require(modulePath)
+    const modulePath = path.join(DIR, 'dist', path.basename(file, '.js'))
+    let sourcePath = './' + modulePath.slice(path.join(DIR, 'dist').length + 1)
+    if (sourcePath.endsWith('/index'))
+      sourcePath = sourcePath.slice(0, sourcePath.length - '/index'.length)
+    const mod = require(file)
     const errors = Object.keys(mod)
       .filter(name => name.startsWith('Err'))
       .map(err => err.slice('Err'.length))
@@ -26,16 +28,29 @@ async function main() {
     if (!errors.length) continue
 
     for (const code of errors) {
+      const fn = mod['Err' + code]
       const existing = allErrors.get(code)
       if (existing) {
-        throw new Error(`error code ${code} is defined in multiple modules: ${sourcePath} and ${existing}`)
+        if (existing.fn !== fn)
+          throw new Error(`error code ${code} is defined in multiple modules: ${sourcePath} and ${existing}`)
+        if (existing.path.length > sourcePath.length)
+          allErrors.set(code, {path: sourcePath, fn: mod['Err' + code]})
+      } else {
+        allErrors.set(code, {path: sourcePath, fn: mod['Err' + code]})
       }
-      allErrors.set(code, sourcePath)
     }
-
-    allModules.set(sourcePath, errors)
   }
 
+  const allModules = new Map
+  for (const [code, {path}] of allErrors) {
+    if (!allModules.has(path)) allModules.set(path, [])
+    allModules.get(path).push(code)
+  }
+
+  if (!allErrors.size) {
+    console.warn('no error codes found, errors.ts not written')
+    return
+  }
 
   const allCodes = [...allErrors.keys()]
   await write(OUTPUT,
@@ -66,3 +81,11 @@ main().catch(err => {
   console.error(err)
   process.exit(1)
 })
+
+async function* walk(dir) {
+  for await (const d of await fs.promises.opendir(dir)) {
+    const entry = path.join(dir, d.name)
+    if (d.isDirectory()) yield* walk(entry)
+    else if (d.isFile()) yield entry
+  }
+}

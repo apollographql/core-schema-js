@@ -43,8 +43,8 @@ expect([...schema.scope]).toMatchInlineSnapshot()
 expect([...schema.refs]).toMatchInlineSnapshot(`
   Array [
     <>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
-    <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
-    <https://specs.apollo.dev/link/v0.3#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
+    <https://specs.apollo.dev/link/v1.0#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+    <https://specs.apollo.dev/link/v1.0#@>[example.graphql] 👉@link(url: "https://specs.apollo.dev/inaccessible/v0.1"),
     <#User>[example.graphql] 👉type User @inaccessible {,
     <https://specs.apollo.dev/inaccessible/v0.1#@>[example.graphql] type User 👉@inaccessible {,
     <#ID>[example.graphql] id: 👉ID!,
@@ -93,12 +93,12 @@ import {Schema, GRef, ref} from '@apollo/core-schema'
 
 const doc = Schema.from(gql `
   extend schema
-    @link(url: "https://specs.apollo.dev/link/v0.3")
+    @link(url: "https://specs.apollo.dev/link/v1.0")
     @link(url: "https://example.com/someSpec/v1.0")
     @link(url: "https://spec.example.io/another/v1.0", as: "renamed")
 `)
 expect(doc.scope.lookup('@link')).toBe(
-  GRef.rootDirective('https://specs.apollo.dev/link/v0.3')
+  GRef.rootDirective('https://specs.apollo.dev/link/v1.0')
 )
 expect(doc.scope.lookup('renamed__Type'))).toBe(
   GRef.named('Type', "https://spec.example.io/another/v1.0")
@@ -116,7 +116,7 @@ enable this:
 ```typescript
 const SUBGRAPH_BUILTINS = Schema.from(gql `
   extend schema
-    @link(url: "https://specs.apollo.dev/link/v0.3")
+    @link(url: "https://specs.apollo.dev/link/v1.0")
     @link(url: "https://specs.apollo.dev/federation/v1.0",
           import: "@key @requires @provides @external")
 `)
@@ -210,7 +210,7 @@ expect(
     subgraph.standardize("https://specs.apollo.dev/federation/v2.0").print()
   )
 ).toMatchInlineSnapshot(`
-  extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/id/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0")
+  extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/id/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0")
 
   type User @federation__key(fields: "id") {
     id: ID! @federation__tag(name: "hi") @tag(name: "my tag")
@@ -293,7 +293,7 @@ note that this also works for the `@link` directive itself:
 
 ```graphql
 extend schema
-  @coreLink(url: "https://specs.apollo.dev/link/v0.3", as: coreLink)
+  @coreLink(url: "https://specs.apollo.dev/link/v1.0", as: coreLink)
   @coreLink(url: "https://specs.apollo.dev/federation/v2.0",
         import: "@fedKey: @key")
 ```
@@ -357,7 +357,7 @@ import {Schema, gql} from '@apollo/core-schema'
 const schema = Schema.from(gql `
   extend schema
     @id(url: "https://my/schema")
-    @link(url: "https://specs.apollo.dev/link/v0.3")
+    @link(url: "https://specs.apollo.dev/link/v1.0")
     @link(url: "https://specs.apollo.dev/federation", import: "@key")
     @link(url: "https://myorg.internal/future")
 

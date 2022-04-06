@@ -1,7 +1,7 @@
 import recall, { replay, use } from '@protoplasm/recall'
 import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refNodesIn, Defs, isLocatable, Locatable, fill, Def } from './de'
+import { refNodesIn, Defs, isLocatable, Locatable, fill, Def, isRedirect } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
 import { GRef, byGref } from './gref'
@@ -164,6 +164,13 @@ export class Schema implements Defs {
     }), this.scope.parent)
   }
 
+  // dangerousRemoveHeaders(): Schema {
+  //   return Schema.from({
+  //     kind: Kind.DOCUMENT,
+  //     definitions: [...]
+  //   })
+  // }
+
   print(): string {
     return print(this.document)
   }
@@ -188,6 +195,7 @@ const selfIn = recall(
 
 export function *pruneLinks(defs: Defs): Defs {
   for (const def of defs) {
+    if (isRedirect(def)) continue
     if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
       if (!def.directives) yield def
       const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has((dir as any).gref))

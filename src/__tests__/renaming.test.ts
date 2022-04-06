@@ -42,7 +42,7 @@ describe("view of a schema", () => {
       ],
     });
     expect(raw(output.print())).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/id/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0")
+      extend schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/id/v1.0") @link(url: "https://specs.apollo.dev/federation/v2.0")
 
       type User @federation__key(fields: "id") {
         id: ID! @federation__tag(name: "hi") @tag(name: "my tag")

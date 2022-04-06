@@ -11,7 +11,7 @@ const base = Schema.from(
     new Source(
       `
   extend schema
-    @link(url: "https://specs.apollo.dev/link/v0.3")
+    @link(url: "https://specs.apollo.dev/link/v1.0")
     @link(url: "https://specs.apollo.dev/id/v1.0")  
     
   directive @link(url: link__Url!, as: link__Schema, import: link__Import)
@@ -49,7 +49,7 @@ describe("fill", () => {
     expect(fill(schema, base)).toMatchInlineSnapshot(`
       Iterable [
         <https://specs.apollo.dev/id/v1.0#@>[builtins.graphql] 👉directive @id(url: link__Url!, as: link__Schema) on SCHEMA,
-        <https://specs.apollo.dev/link/v0.3#@>[builtins.graphql] 👉directive @link(url: link__Url!, as: link__Schema, import: link__Import),
+        <https://specs.apollo.dev/link/v1.0#@>[builtins.graphql] 👉directive @link(url: link__Url!, as: link__Schema, import: link__Import),
       ]
     `);
   });
@@ -86,21 +86,21 @@ describe("fill", () => {
         Array [
           "NoDefinition",
           Array [
-            <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
-            <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @link(url: 👉link__Url!, as: link__Schema, import: link__Import),
+            <https://specs.apollo.dev/link/v1.0#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
+            <https://specs.apollo.dev/link/v1.0#Url>[builtins.graphql] directive @link(url: 👉link__Url!, as: link__Schema, import: link__Import),
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @id(url: link__Url!, as: 👉link__Schema) on SCHEMA,
-            <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @link(url: link__Url!, as: 👉link__Schema, import: link__Import),
+            <https://specs.apollo.dev/link/v1.0#Schema>[builtins.graphql] directive @id(url: link__Url!, as: 👉link__Schema) on SCHEMA,
+            <https://specs.apollo.dev/link/v1.0#Schema>[builtins.graphql] directive @link(url: link__Url!, as: 👉link__Schema, import: link__Import),
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            <https://specs.apollo.dev/link/v0.3#Import>[builtins.graphql] directive @link(url: link__Url!, as: link__Schema, import: 👉link__Import),
+            <https://specs.apollo.dev/link/v1.0#Import>[builtins.graphql] directive @link(url: link__Url!, as: link__Schema, import: 👉link__Import),
           ],
         ],
       ]
@@ -141,7 +141,7 @@ describe("a subgraph test", () => {
   it("works", () => {
     const schema = Schema.basic(gql`${"subgraph-test.graphql"}
       extend schema
-        @link(url: "https://specs.apollo.dev/link/v0.3")
+        @link(url: "https://specs.apollo.dev/link/v1.0")
         @link(url: "https://specs.apollo.dev/federation/v1.0",
           import: "@key @requires @provides @external")
         @link(url: "https://specs.apollo.dev/id/v1.0")
@@ -170,9 +170,9 @@ describe("a subgraph test", () => {
         GRef <#@provides> => GRef <https://specs.apollo.dev/federation/v1.0#@provides> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         GRef <#@external> => GRef <https://specs.apollo.dev/federation/v1.0#@external> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         <>[subgraph-test.graphql] 👉extend schema,
-        <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
-        <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0",
-        <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/id/v1.0"),
+        <https://specs.apollo.dev/link/v1.0#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/link/v1.0"),
+        <https://specs.apollo.dev/link/v1.0#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0",
+        <https://specs.apollo.dev/link/v1.0#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/id/v1.0"),
         <#Query>[subgraph-test.graphql] 👉type Query {,
         <#Product>[subgraph-test.graphql] product: 👉Product,
         <#Product>[subgraph-test.graphql] 👉type Product @key(fields: "upc") {,
@@ -187,8 +187,8 @@ describe("a subgraph test", () => {
       ]
     `);
 
-    const LINK = Schema.basic(gql`${"builtin/link/v0.3.graphql"}
-      @id(url: "https://specs.apollo.dev/link/v0.3")
+    const LINK = Schema.basic(gql`${"builtin/link/v1.0.graphql"}
+      @id(url: "https://specs.apollo.dev/link/v1.0")
     
       directive @link(url: Url!, as: Name, import: Imports)
         repeatable on SCHEMA
@@ -200,10 +200,10 @@ describe("a subgraph test", () => {
 
     expect([...fill(schema, LINK)]).toMatchInlineSnapshot(`
       Array [
-        <https://specs.apollo.dev/link/v0.3#@>[builtin/link/v0.3.graphql] 👉directive @link(url: Url!, as: Name, import: Imports),
-        <https://specs.apollo.dev/link/v0.3#Url>[builtin/link/v0.3.graphql] 👉scalar Url,
-        <https://specs.apollo.dev/link/v0.3#Name>[builtin/link/v0.3.graphql] 👉scalar Name,
-        <https://specs.apollo.dev/link/v0.3#Imports>[builtin/link/v0.3.graphql] 👉scalar Imports,
+        <https://specs.apollo.dev/link/v1.0#@>[builtin/link/v1.0.graphql] 👉directive @link(url: Url!, as: Name, import: Imports),
+        <https://specs.apollo.dev/link/v1.0#Url>[builtin/link/v1.0.graphql] 👉scalar Url,
+        <https://specs.apollo.dev/link/v1.0#Name>[builtin/link/v1.0.graphql] 👉scalar Name,
+        <https://specs.apollo.dev/link/v1.0#Imports>[builtin/link/v1.0.graphql] 👉scalar Imports,
       ]
     `);
 
@@ -216,21 +216,21 @@ describe("a subgraph test", () => {
         [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@requires
 
       subgraph-test.graphql:4:9
-      3 |         @link(url: "https://specs.apollo.dev/link/v0.3")
+      3 |         @link(url: "https://specs.apollo.dev/link/v1.0")
       4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
         |         ^
       5 |           import: "@key @requires @provides @external"),
         [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@provides
 
       subgraph-test.graphql:4:9
-      3 |         @link(url: "https://specs.apollo.dev/link/v0.3")
+      3 |         @link(url: "https://specs.apollo.dev/link/v1.0")
       4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
         |         ^
       5 |           import: "@key @requires @provides @external"),
         [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@external
 
       subgraph-test.graphql:4:9
-      3 |         @link(url: "https://specs.apollo.dev/link/v0.3")
+      3 |         @link(url: "https://specs.apollo.dev/link/v1.0")
       4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
         |         ^
       5 |           import: "@key @requires @provides @external"),
