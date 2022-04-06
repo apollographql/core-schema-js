@@ -44,12 +44,14 @@ export class Schema implements Defs {
         if (self) {
           scope.add({
             ...self,
-            name: ''
+            name: '',
+            implicit: true,
           })
           scope.add({
             ...self,
             name: '@' + self.name,
-            gref: GRef.rootDirective(self.gref.graph)
+            gref: GRef.rootDirective(self.gref.graph),
+            implicit: true,
           })
         }
       })
@@ -62,6 +64,15 @@ export class Schema implements Defs {
     const {scope} = this
     for (const def of this.document.definitions) {
       if (isLocatable(def)) yield scope.denormalize(def)
+    }
+    for (const link of scope) {
+      if (!link.name || !link.gref.name || link.implicit) continue
+      yield {
+        code: 'Redirect' as const,
+        gref: GRef.named(link.name, scope.url),
+        toGref: link.gref,
+        via: link.via,
+      }
     }
   }
 
@@ -174,7 +185,7 @@ export function *pruneLinks(defs: Defs): Defs {
   for (const def of defs) {
     if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
       if (!def.directives) yield def
-      const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has(dir.gref))
+      const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has((dir as any).gref))
       if (!directives?.length && !def.operationTypes?.length && !(def as SchemaDefinitionNode).description)
         continue
       yield { ...def, directives }

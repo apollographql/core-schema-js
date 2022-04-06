@@ -49,4 +49,4 @@ export interface HasGref {
 /**
  * group detached nodes (or anything with an 'hgref' really )
  */
-export const byGref = groupBy((node: HasGref) => node.gref)
+export const byGref = groupBy((node: any): GRef => node?.gref)

@@ -62,6 +62,16 @@ export class Scope implements IScope {
       if (found) return GRef.canon(scopeNameFor(node, name), found.gref.graph)
     }
 
+    if (isAst(node, Kind.DIRECTIVE) && !prefix) {
+      const named = this.lookup(scopeNameFor(node))?.gref
+      if (named) return named
+
+      const maybeNs = this.lookup(name)
+      if (maybeNs?.gref.name === '') {
+        return GRef.rootDirective(maybeNs.gref.graph)
+      }
+    }
+
     // if there was no prefix OR the prefix wasn't found,
     // treat the entire name as a local name
     //

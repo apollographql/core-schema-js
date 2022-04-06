@@ -25,40 +25,40 @@ export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
  * easier to move them between documents, which may have different sets of `@link`
  * directives (and thus different namespaces).
  */
-export type De<T> =
-  T extends (infer E)[]
-    ? De<E>[]
-    :
-  T extends Locatable
-    ? {
-      [K in keyof T]:
-        K extends 'kind' | 'loc'
-          ? T[K]
-          :
-        De<T[K]>
-    } & HasGref
-    :
-  T extends object
-    ? {
-      [K in keyof T]: K extends 'kind' | 'loc'
-        ? T[K]
-        :
-      De<T[K]>
-    }
-    :
-  T
+export type De<T> = T & any
+  // T extends (infer E)[]
+  //   ? De<E>[]
+  //   :
+  // T extends Locatable
+  //   ? {
+  //     [K in keyof T]:
+  //       K extends 'kind' | 'loc'
+  //         ? T[K]
+  //         :
+  //       De<T[K]>
+  //   } & HasGref
+  //   :
+  // T extends object
+  //   ? {
+  //     [K in keyof T]: K extends 'kind' | 'loc'
+  //       ? T[K]
+  //       :
+  //     De<T[K]>
+  //   }
+  //   :
+  // T
 
 export type Def = De<DefinitionNode> | Redirect
 export type Defs = Iterable<Def>
 
 export interface Redirect {
-  kind: 'Redirect'
+  code: 'Redirect'
   gref: GRef
   toGref: GRef
-  via?: De<DirectiveNode>
+  via?: DirectiveNode
 }
 
-export const isRedirect = (o: any): o is Redirect => o?.kind === 'Redirect'
+export const isRedirect = (o: any): o is Redirect => o?.code === 'Redirect'
 
 export type Locatable =
   | DefinitionNode
@@ -156,9 +156,8 @@ export function *children<T>(root: T): Iterable<ChildOf<T>> {
   }
 }
 
-export const hasRef = (o?: any): o is { gref: GRef } =>
+export const hasRef = (o?: any): o is HasGref =>
   o?.gref instanceof GRef
-
 
 const LOCATABLE_KINDS = new Set([
   ...Object.values(Kind)

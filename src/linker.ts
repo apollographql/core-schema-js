@@ -99,6 +99,7 @@ export interface Link extends HasGref {
   name: string
   via?: DirectiveNode
   linker?: DirectiveNode
+  implicit?: boolean
 }
 
 const $id = new GraphQLDirective({
@@ -134,8 +135,8 @@ export class Linker {
     const self = this.bootstrap(dir)
     if (self) return self
     const other = scope.lookup('@' + dir.name.value)
-    if (!other?.linker) return
-    return Linker.bootstrap(other.linker)
+    if (!other?.via) return
+    return Linker.bootstrap(other.via)
   }
 
   @use(recall)
@@ -181,6 +182,7 @@ export class Linker {
         gref: GRef.rootDirective(url),
         via: directive,
         linker: this.strap,
+        implicit: true,
       }
     }
     for (const i of args.import as ImportNode[] ?? []) {
