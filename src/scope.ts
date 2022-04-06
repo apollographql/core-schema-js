@@ -2,12 +2,11 @@ import recall, { report, use } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, Kind, SchemaExtensionNode, visit } from 'graphql'
 import { Linker, type Link } from './linker'
 import { De, Defs, hasRef, isLocatable, isLocated, isRedirect, Locatable, Located, Redirect } from './de'
-import GRef, { byGref } from './gref'
+import GRef from './gref'
 import { isAst, hasName } from './is'
 import LinkUrl from './link-url'
 import { getPrefix, scopeNameFor, toPrefixed } from './names'
 import ScopeMap from './scope-map'
-import { first, flat, groupBy, only } from './each'
 import err from './error'
 
 /**

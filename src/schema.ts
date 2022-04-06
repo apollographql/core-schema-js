@@ -1,7 +1,7 @@
-import recall, { getResult, replay, report, use } from '@protoplasm/recall'
-import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode, visit, BREAK } from 'graphql'
+import recall, { replay, use } from '@protoplasm/recall'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit, BREAK } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refNodesIn, Defs, isLocatable, Locatable, fill, De, Def, isRedirect } from './de'
+import { refNodesIn, Defs, isLocatable, Locatable, fill, Def } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
 import { GRef, byGref } from './gref'
@@ -9,7 +9,7 @@ import Scope, { including, IScope } from './scope'
 import { isAst } from './is'
 import gql from './gql'
 import LinkUrl from './link-url'
-import {concat, first, flat} from './each'
+import {concat} from './each'
 export class Schema implements Defs {  
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
     if (frame instanceof Schema)

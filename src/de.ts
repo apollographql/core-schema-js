@@ -25,28 +25,28 @@ export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
  * easier to move them between documents, which may have different sets of `@link`
  * directives (and thus different namespaces).
  */
-export type De<T> = T & HasGref
-  // T extends (infer E)[]
-  //   ? De<E>[]
-  //   :
-  // T extends Locatable
-  //   ? {
-  //     [K in keyof T]:
-  //       K extends 'kind' | 'loc'
-  //         ? T[K]
-  //         :
-  //       De<T[K]>
-  //   } & HasGref
-  //   :
-  // T extends object
-  //   ? {
-  //     [K in keyof T]: K extends 'kind' | 'loc'
-  //       ? T[K]
-  //       :
-  //     De<T[K]>
-  //   }
-  //   :
-  // T
+export type De<T> =
+  T extends (infer E)[]
+    ? De<E>[]
+    :
+  T extends Locatable
+    ? {
+      [K in keyof T]:
+        K extends 'kind' | 'loc'
+          ? T[K]
+          :
+        De<T[K]>
+    } & HasGref
+    :
+  T extends object
+    ? {
+      [K in keyof T]: K extends 'kind' | 'loc'
+        ? T[K]
+        :
+      De<T[K]>
+    }
+    :
+  T
 
 export type Def = De<DefinitionNode> | Redirect
 export type Defs = Iterable<Def>
