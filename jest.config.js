@@ -15,6 +15,7 @@ module.exports = {
     './src/snapshot-serializers/raw.ts',
     './src/snapshot-serializers/hgref.ts',
     './src/snapshot-serializers/iterable.ts',
+    './src/snapshot-serializers/redirect.ts',
   ],
   moduleFileExtensions: [...defaults.moduleFileExtensions, "ts", "tsx"],
   // moduleNameMapper: {

@@ -1,5 +1,5 @@
 import recall, { use } from '@protoplasm/recall'
-import { ASTNode, DefinitionNode, Kind, visit } from 'graphql'
+import { ASTNode, DefinitionNode, Kind, SchemaExtensionNode, visit } from 'graphql'
 import { Linker, type Link } from './linker'
 import { De, Defs, hasRef, isLocatable, isLocated, isRedirect, Locatable, Located, Redirect } from './de'
 import GRef from './gref'
@@ -15,7 +15,7 @@ export interface IScope extends Iterable<Link> {
   readonly url?: LinkUrl
   readonly self?: Link
   readonly parent?: IScope
-  readonly linker?: Linker
+  readonly linker: Linker
   readonly flat: IScope
 
   own(name: string): Link | undefined
@@ -23,7 +23,7 @@ export interface IScope extends Iterable<Link> {
   lookup(name: string): Link | undefined
   visible(): Iterable<[string, Link]>
   entries(): Iterable<[string, Link]>
-  header(): Defs
+  header(): [De<SchemaExtensionNode>] | []
   locate(node: Locatable): GRef
   name(node: GRef): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
@@ -87,8 +87,8 @@ export class Scope implements IScope {
     return this.lookup(scopeNameFor(node))?.gref ?? GRef.canon(scopeNameFor(node), this.url)
   }
 
-  header(): Defs {
-    const directives = [...this.linker?.synthesize(this) ?? []]
+  header(): [De<SchemaExtensionNode>] | [] {
+    const directives = [...this.linker.synthesize(this)]
     if (directives.length) {
       return [{ kind: Kind.SCHEMA_EXTENSION, directives, gref: GRef.schema(this.url) }]
     }
@@ -173,11 +173,12 @@ export class Scope implements IScope {
     }, this.parent)
   }
 
-  get linker() {
-    for (const [_, link] of this.visible()) {
-      if (link.linker) return Linker.bootstrap(link.linker)
+  get linker(): Linker {
+    for (const link of this) {
+      const linker = link.linker ? Linker.bootstrap(link.linker) : null
+      if (linker) return linker
     }
-    return
+    return this.parent?.linker ?? Linker.DEFAULT
   }
 
   //@ts-ignore — accessible via IScopeMut

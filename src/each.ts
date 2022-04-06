@@ -1,4 +1,4 @@
-import recall, { Recall } from "@protoplasm/recall"
+import recall, { Recall, replay } from "@protoplasm/recall"
 import err from "./error"
 
 type ItemType<G extends (item: any) => any> = Parameters<G>[0]
@@ -15,6 +15,14 @@ const ErrTooMany = (iterable: Iterable<any>) =>
     message: 'expected at most one value, found more',
     iterable
   })
+
+export function first<I extends Iterable<any>>(iter?: I): ElementType<I> {  
+  if (!iter) throw ErrEmpty(iter)
+  const it = iter[Symbol.iterator]()
+  const r = it.next()
+  if (r.done) throw ErrEmpty(iter)
+  return r.value
+}
 
 export function only<I extends Iterable<any>>(iter?: I): ElementType<I> {  
   if (!iter) throw ErrEmpty(iter)
@@ -72,3 +80,13 @@ export const groupBy: Recall<<G extends (item: any) => any>(grouper: G) => <T ex
     return groupSources
   }
 )
+
+export const flat = replay(
+  function *flat<I extends Iterable<Iterable<any>>>(iters: I): Iterator<ElementType<ElementType<I>>> {
+    for (const iter of iters)
+      yield *iter
+  }
+)
+
+export const concat = <I>(...iters: Iterable<I>[]): Iterable<I> =>
+  flat(iters)

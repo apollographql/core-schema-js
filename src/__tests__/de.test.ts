@@ -35,6 +35,8 @@ const schema = Schema.from(
     type User @key(fields: "id") {
       id: ID!
     }
+
+    directive @key(fields: String) on OBJECT
 `,
       "example"
     )
@@ -54,30 +56,52 @@ describe("fill", () => {
 
   it("reports errors", () => {
     const result = getResult(() => [...fill(schema, base)]);
-    expect(
-      [...result.errors()]
-        .map((e: any) => e.code)
-        .reduce((x, y) => (x !== y ? [x, y] : x))
-    ).toBe("NoDefinition");
-    expect([...result.errors()].map((err: any) => err.nodes))
+    expect([...result.errors()].map((err: any) => [err.code, err.nodes]))
       .toMatchInlineSnapshot(`
       Array [
         Array [
-          <https://specs.apollo.dev/federation/v2.0#@key>[example] type User 👉@key(fields: "id") {,
+          "NoDefinition",
+          Array [
+            <https://specs/me#ID>[example] id: 👉ID!,
+          ],
         ],
         Array [
-          <https://specs/me#ID>[example] id: 👉ID!,
+          "NoDefinition",
+          Array [
+            <https://specs/me#String>[example] directive @key(fields: 👉String) on OBJECT,
+          ],
         ],
         Array [
-          <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
-          <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @link(url: 👉link__Url!, as: link__Schema, import: link__Import),
+          "NoDefinition",
+          Array [
+            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
+          ],
         ],
         Array [
-          <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @id(url: link__Url!, as: 👉link__Schema) on SCHEMA,
-          <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @link(url: link__Url!, as: 👉link__Schema, import: link__Import),
+          "NoDefinition",
+          Array [
+            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
+          ],
         ],
         Array [
-          <https://specs.apollo.dev/link/v0.3#Import>[builtins.graphql] directive @link(url: link__Url!, as: link__Schema, import: 👉link__Import),
+          "NoDefinition",
+          Array [
+            <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
+            <https://specs.apollo.dev/link/v0.3#Url>[builtins.graphql] directive @link(url: 👉link__Url!, as: link__Schema, import: link__Import),
+          ],
+        ],
+        Array [
+          "NoDefinition",
+          Array [
+            <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @id(url: link__Url!, as: 👉link__Schema) on SCHEMA,
+            <https://specs.apollo.dev/link/v0.3#Schema>[builtins.graphql] directive @link(url: link__Url!, as: 👉link__Schema, import: link__Import),
+          ],
+        ],
+        Array [
+          "NoDefinition",
+          Array [
+            <https://specs.apollo.dev/link/v0.3#Import>[builtins.graphql] directive @link(url: link__Url!, as: link__Schema, import: 👉link__Import),
+          ],
         ],
       ]
     `);
@@ -115,8 +139,7 @@ describe("refsInDefs", () => {
 
 describe("a subgraph test", () => {
   it("works", () => {
-    const schema = Schema.from(
-      parse(`
+    const schema = Schema.basic(gql`${"subgraph-test.graphql"}
       extend schema
         @link(url: "https://specs.apollo.dev/link/v0.3")
         @link(url: "https://specs.apollo.dev/federation/v1.0",
@@ -139,46 +162,41 @@ describe("a subgraph test", () => {
       directive @key(fields: federation__FieldSet!) repeatable on OBJECT
       
       scalar federation__FieldSet
-    `)
-    );
+    `);
     expect([...refNodesIn(schema)]).toMatchInlineSnapshot(`
       Array [
-        <>[GraphQL request] 👉extend schema,
-        <https://specs.apollo.dev/link/v0.3#@>[GraphQL request] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
-        <https://specs.apollo.dev/link/v0.3#@>[GraphQL request] 👉@link(url: "https://specs.apollo.dev/federation/v1.0",
-        <https://specs.apollo.dev/link/v0.3#@>[GraphQL request] 👉@link(url: "https://specs.apollo.dev/id/v1.0"),
-        <#Query>[GraphQL request] 👉type Query {,
-        <#Product>[GraphQL request] product: 👉Product,
-        <#Product>[GraphQL request] 👉type Product @key(fields: "upc") {,
-        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] type Product 👉@key(fields: "upc") {,
-        <#String>[GraphQL request] upc: 👉String!,
-        <#String>[GraphQL request] name: 👉String,
-        <#Product>[GraphQL request] 👉extend type Product {,
-        <#Int>[GraphQL request] price: 👉Int,
-        <https://specs.apollo.dev/federation/v1.0#@key>[GraphQL request] 👉directive @key(fields: federation__FieldSet!) repeatable on OBJECT,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[GraphQL request] directive @key(fields: 👉federation__FieldSet!) repeatable on OBJECT,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[GraphQL request] 👉scalar federation__FieldSet,
+        <>[subgraph-test.graphql] 👉extend schema,
+        <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
+        <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0",
+        <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/id/v1.0"),
+        <#Query>[subgraph-test.graphql] 👉type Query {,
+        <#Product>[subgraph-test.graphql] product: 👉Product,
+        <#Product>[subgraph-test.graphql] 👉type Product @key(fields: "upc") {,
+        <https://specs.apollo.dev/federation/v1.0#@key>[subgraph-test.graphql] type Product 👉@key(fields: "upc") {,
+        <https://specs.graphql.org/#String>[subgraph-test.graphql] upc: 👉String!,
+        <https://specs.graphql.org/#String>[subgraph-test.graphql] name: 👉String,
+        <#Product>[subgraph-test.graphql] 👉extend type Product {,
+        <https://specs.graphql.org/#Int>[subgraph-test.graphql] price: 👉Int,
+        <https://specs.apollo.dev/federation/v1.0#@key>[subgraph-test.graphql] 👉directive @key(fields: federation__FieldSet!) repeatable on OBJECT,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[subgraph-test.graphql] directive @key(fields: 👉federation__FieldSet!) repeatable on OBJECT,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[subgraph-test.graphql] 👉scalar federation__FieldSet,
+        GRef <#@key> => GRef <https://specs.apollo.dev/federation/v1.0#@key> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        GRef <#@requires> => GRef <https://specs.apollo.dev/federation/v1.0#@requires> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        GRef <#@provides> => GRef <https://specs.apollo.dev/federation/v1.0#@provides> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        GRef <#@external> => GRef <https://specs.apollo.dev/federation/v1.0#@external> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
       ]
     `);
 
-    const LINK = Schema.from(
-      parse(
-        new Source(
-          `
-    extend schema @id(url: "https://specs.apollo.dev/link/v0.3")
-  
-    directive @link(url: Url!, as: Name, import: Imports)
-      repeatable on SCHEMA
-  
-    scalar Url
-    scalar Name
-    scalar Imports
-    `,
-          "builtin/link/v0.3.graphql"
-        )
-      ),
-      base
-    );
+    const LINK = Schema.basic(gql`${"builtin/link/v0.3.graphql"}
+      @id(url: "https://specs.apollo.dev/link/v0.3")
+    
+      directive @link(url: Url!, as: Name, import: Imports)
+        repeatable on SCHEMA
+    
+      scalar Url
+      scalar Name
+      scalar Imports
+    `);
 
     expect([...fill(schema, LINK)]).toMatchInlineSnapshot(`
       Array [
@@ -190,45 +208,33 @@ describe("a subgraph test", () => {
     `);
 
     expect(
-      [...getResult(() => [...fill(schema, LINK)]).errors()].map(
-        (x) => (x as any).nodes
+      [...getResult(() => [...fill(schema, LINK)]).errors()].map((x) =>
+        raw(x.toString())
       )
     ).toMatchInlineSnapshot(`
       Array [
-        Array [
-          <#String>[GraphQL request] upc: 👉String!,
-          <#String>[GraphQL request] name: 👉String,
-        ],
-        Array [
-          <#Int>[GraphQL request] price: 👉Int,
-        ],
+        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@requires
+
+      subgraph-test.graphql:4:9
+      3 |         @link(url: "https://specs.apollo.dev/link/v0.3")
+      4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
+        |         ^
+      5 |           import: "@key @requires @provides @external"),
+        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@provides
+
+      subgraph-test.graphql:4:9
+      3 |         @link(url: "https://specs.apollo.dev/link/v0.3")
+      4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
+        |         ^
+      5 |           import: "@key @requires @provides @external"),
+        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@external
+
+      subgraph-test.graphql:4:9
+      3 |         @link(url: "https://specs.apollo.dev/link/v0.3")
+      4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
+        |         ^
+      5 |           import: "@key @requires @provides @external"),
       ]
-    `);
-  });
-});
-
-describe("fill", () => {
-  const atlas = Schema.basic(gql`
-    @id(url: "https://example.dev/zoo")
-    @link(url: "https://example.dev/aardvark")
-    @link(url: "https://example.dev/zebra")
-
-    directive @aardvark on OBJECT
-    directive @zebra on OBJECT
-  `);
-
-  it("handles transitive @links", () => {
-    const schema = Schema.basic(gql`
-      @link(url: "https://example.dev/zoo", import: "@aardvark @zebra")
-
-      type Query @aardvark @zebra
-    `)
-    const result = getResult(() => schema.compile(atlas))
-    expect([...result.errors()]).toEqual([])
-    expect(raw(result.unwrap().print())).toMatchInlineSnapshot(`
-      extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://example.dev/zoo", import: ["@aardvark", "@zebra"]) @link(url: "https://specs.apollo.dev/id/v1.0")
-
-      type Query @aardvark @zebra
     `);
   });
 });

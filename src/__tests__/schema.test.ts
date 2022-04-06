@@ -1,12 +1,12 @@
 import { Kind, parse, Source, print } from "graphql";
-import { Locatable, refNodesIn } from "../de";
+import { fill, isRedirect, Locatable, refNodesIn } from "../de";
 import gql from "../gql";
 import { GRef } from "../gref";
 import LinkUrl from "../link-url";
 import Schema from "../schema";
 import { Atlas } from "../atlas";
 import raw from "../snapshot-serializers/raw";
-import recall from "@protoplasm/recall";
+import recall, { getResult } from "@protoplasm/recall";
 
 const base = Schema.from(
   parse(
@@ -151,7 +151,7 @@ describe("Schema", () => {
   });
 
   it("understands @id", () => {
-    const schema = Schema.basic(gql`${"schema with id"}
+    const schema = Schema.basic(gql`${"schema-with-id.graphql"}
       @id(url: "https://specs/me")
       @link(url: "https://specs.apollo.dev/federation/v2.0",
         import: "@requires @key @prov: @provides")
@@ -173,27 +173,12 @@ describe("Schema", () => {
     );
     expect(schema).toMatchInlineSnapshot(`
       Schema [
-        <https://specs/me>[schema with id] 👉@id(url: "https://specs/me"),
-        <https://specs/me#@>[schema with id] 👉directive @me repeatable on SCHEMA,
-        <https://specs/me#Something>[schema with id] 👉scalar Something @key,
-        Object {
-          "code": "Redirect",
-          "gref": GRef <https://specs/me#@requires>,
-          "toGref": GRef <https://specs.apollo.dev/federation/v2.0#@requires>,
-          "via": [schema with id] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
-        },
-        Object {
-          "code": "Redirect",
-          "gref": GRef <https://specs/me#@key>,
-          "toGref": GRef <https://specs.apollo.dev/federation/v2.0#@key>,
-          "via": [schema with id] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
-        },
-        Object {
-          "code": "Redirect",
-          "gref": GRef <https://specs/me#@prov>,
-          "toGref": GRef <https://specs.apollo.dev/federation/v2.0#@provides>,
-          "via": [schema with id] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
-        },
+        <https://specs/me>[schema-with-id.graphql] 👉@id(url: "https://specs/me"),
+        <https://specs/me#@>[schema-with-id.graphql] 👉directive @me repeatable on SCHEMA,
+        <https://specs/me#Something>[schema-with-id.graphql] 👉scalar Something @key,
+        GRef <https://specs/me#@requires> => GRef <https://specs.apollo.dev/federation/v2.0#@requires> (via [schema-with-id.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v2.0"),
+        GRef <https://specs/me#@key> => GRef <https://specs.apollo.dev/federation/v2.0#@key> (via [schema-with-id.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v2.0"),
+        GRef <https://specs/me#@prov> => GRef <https://specs.apollo.dev/federation/v2.0#@provides> (via [schema-with-id.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v2.0"),
       ]
     `);
 
@@ -208,7 +193,7 @@ describe("Schema", () => {
   });
 
   it("gets definitions for nodes", () => {
-    const schema = Schema.basic(gql`${"my-schema"}
+    const schema = Schema.basic(gql`${"my-schema.graphql"}
       @id(url: "https://specs/me")
       @link(url: "https://specs.apollo.dev/federation/v2.0",
             import: "@requires @key @provides (as @prov)")
@@ -221,7 +206,7 @@ describe("Schema", () => {
     const user = schema.locate(ref("User"));
     expect(schema.definitions(user)).toMatchInlineSnapshot(`
       Array [
-        <https://specs/me#User>[my-schema] 👉type User @key(fields: "id") {,
+        <https://specs/me#User>[my-schema.graphql] 👉type User @key(fields: "id") {,
       ]
     `);
 
@@ -235,7 +220,7 @@ describe("Schema", () => {
       @link(url: "https://specs.apollo.dev/federation/v1.0", import: "@key")
     `);
     const atlas = Atlas.fromSchemas(
-      Schema.basic(gql`${"link spec"}
+      Schema.basic(gql`${"link.graphql"}
         @id(url: "https://specs.apollo.dev/link/v0.3")
         
         directive @link(url: Url!, as: Name, import: Imports)
@@ -244,7 +229,7 @@ describe("Schema", () => {
         scalar Name
         scalar Imports
       `),
-      Schema.basic(gql`${"fed spec"}
+      Schema.basic(gql`${"fed.graphql"}
         @id(url: "https://specs.apollo.dev/federation/v1.0")
 
         directive @key(fields: FieldSet!) on OBJECT
@@ -254,14 +239,14 @@ describe("Schema", () => {
 
     expect(atlas).toMatchInlineSnapshot(`
       Atlas [
-        <https://specs.apollo.dev/link/v0.3>[link spec] 👉@id(url: "https://specs.apollo.dev/link/v0.3"),
-        <https://specs.apollo.dev/link/v0.3#@>[link spec] 👉directive @link(url: Url!, as: Name, import: Imports),
-        <https://specs.apollo.dev/link/v0.3#Url>[link spec] 👉scalar Url,
-        <https://specs.apollo.dev/link/v0.3#Name>[link spec] 👉scalar Name,
-        <https://specs.apollo.dev/link/v0.3#Imports>[link spec] 👉scalar Imports,
-        <https://specs.apollo.dev/federation/v1.0>[fed spec] 👉@id(url: "https://specs.apollo.dev/federation/v1.0"),
-        <https://specs.apollo.dev/federation/v1.0#@key>[fed spec] 👉directive @key(fields: FieldSet!) on OBJECT,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[fed spec] 👉scalar FieldSet,
+        <https://specs.apollo.dev/link/v0.3>[link.graphql] 👉@id(url: "https://specs.apollo.dev/link/v0.3"),
+        <https://specs.apollo.dev/link/v0.3#@>[link.graphql] 👉directive @link(url: Url!, as: Name, import: Imports),
+        <https://specs.apollo.dev/link/v0.3#Url>[link.graphql] 👉scalar Url,
+        <https://specs.apollo.dev/link/v0.3#Name>[link.graphql] 👉scalar Name,
+        <https://specs.apollo.dev/link/v0.3#Imports>[link.graphql] 👉scalar Imports,
+        <https://specs.apollo.dev/federation/v1.0>[fed.graphql] 👉@id(url: "https://specs.apollo.dev/federation/v1.0"),
+        <https://specs.apollo.dev/federation/v1.0#@key>[fed.graphql] 👉directive @key(fields: FieldSet!) on OBJECT,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[fed.graphql] 👉scalar FieldSet,
       ]
     `);
 
@@ -276,12 +261,12 @@ describe("Schema", () => {
       builtins
     );
 
-    const result = recall(() => subgraph.compile(atlas)).getResult();
+    const result = getResult(() => subgraph.compile(atlas));
     expect([...result.errors()].map((e: any) => [e, e.nodes]))
       .toMatchInlineSnapshot(`
       Array [
         Array [
-          [NoDefinition: no definitions found for reference],
+          [NoDefinition: no definitions found for reference: #SomeUnresolvedType],
           Array [
             <#SomeUnresolvedType>[subgraph] field: 👉SomeUnresolvedType,
           ],
@@ -289,22 +274,18 @@ describe("Schema", () => {
       ]
     `);
     const compiled = result.unwrap();
+
     expect([...compiled]).toMatchInlineSnapshot(`
       Array [
         <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"]) @link(url: "https://specs.apollo.dev/id/v1.0"),
         <#User>[subgraph] 👉type User @key(fields: "x y z") {,
-        <https://specs.apollo.dev/link/v0.3#@>[link spec] 👉directive @link(url: Url!, as: Name, import: Imports),
-        <https://specs.apollo.dev/federation/v1.0#@key>[fed spec] 👉directive @key(fields: FieldSet!) on OBJECT,
-        <https://specs.apollo.dev/link/v0.3#Url>[link spec] 👉scalar Url,
-        <https://specs.apollo.dev/link/v0.3#Name>[link spec] 👉scalar Name,
-        <https://specs.apollo.dev/link/v0.3#Imports>[link spec] 👉scalar Imports,
-        <https://specs.apollo.dev/federation/v1.0#FieldSet>[fed spec] 👉scalar FieldSet,
-        Object {
-          "code": "Redirect",
-          "gref": GRef <#@key>,
-          "toGref": GRef <https://specs.apollo.dev/federation/v1.0#@key>,
-          "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"]),
-        },
+        <https://specs.apollo.dev/link/v0.3#@>[link.graphql] 👉directive @link(url: Url!, as: Name, import: Imports),
+        <https://specs.apollo.dev/link/v0.3#Url>[link.graphql] 👉scalar Url,
+        <https://specs.apollo.dev/link/v0.3#Name>[link.graphql] 👉scalar Name,
+        <https://specs.apollo.dev/link/v0.3#Imports>[link.graphql] 👉scalar Imports,
+        <https://specs.apollo.dev/federation/v1.0#@key>[fed.graphql] 👉directive @key(fields: FieldSet!) on OBJECT,
+        <https://specs.apollo.dev/federation/v1.0#FieldSet>[fed.graphql] 👉scalar FieldSet,
+        GRef <#@key> => GRef <https://specs.apollo.dev/federation/v1.0#@key> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"])),
       ]
     `);
 
@@ -318,16 +299,66 @@ describe("Schema", () => {
 
       directive @link(url: link__Url!, as: link__Name, import: link__Imports) repeatable on SCHEMA
 
-      directive @key(fields: federation__FieldSet!) on OBJECT
-
       scalar link__Url
 
       scalar link__Name
 
       scalar link__Imports
 
+      directive @key(fields: federation__FieldSet!) on OBJECT
+
       scalar federation__FieldSet
     `);
+  });
+
+  describe("compiles transitive links", () => {
+    const atlas = Schema.basic(gql`${"zoo.graphql"}
+      @id(url: "https://example.dev/zoo")
+      @link(url: "https://example.dev/aardvark", import: "@ (as @aardvark)")
+      @link(url: "https://example.dev/animals", import: "@zebra")
+  
+      directive @aardvark on OBJECT
+      directive @zebra on OBJECT
+      directive @link repeatable on SCHEMA
+    `);
+
+    it("handles transitive @links", () => {
+      expect(atlas).toMatchInlineSnapshot(`
+        Schema [
+          <https://example.dev/zoo>[zoo.graphql] 👉@id(url: "https://example.dev/zoo"),
+          <https://example.dev/aardvark#@>[zoo.graphql] 👉directive @aardvark on OBJECT,
+          <https://example.dev/animals#@zebra>[zoo.graphql] 👉directive @zebra on OBJECT,
+          <https://specs.apollo.dev/link/v0.3#@>[zoo.graphql] 👉directive @link repeatable on SCHEMA,
+          GRef <https://example.dev/zoo#@aardvark> => GRef <https://example.dev/aardvark#@> (via [zoo.graphql] 👉@link(url: "https://example.dev/aardvark", import: "@ (as @aardvark)")),
+          GRef <https://example.dev/zoo#@zebra> => GRef <https://example.dev/animals#@zebra> (via [zoo.graphql] 👉@link(url: "https://example.dev/animals", import: "@zebra")),
+        ]
+      `);
+
+      const schema = Schema.basic(gql`${"input.graphql"}
+        @link(url: "https://example.dev/zoo", import: "@aardvark @zebra")
+      `);
+
+      const result = getResult(() => schema.compile(atlas));
+      expect([...result.errors()]).toEqual([]);
+      expect(result.log.collectUnique(isRedirect)).toMatchInlineSnapshot(`
+        Set [
+          GRef <#@aardvark> => GRef <https://example.dev/zoo#@aardvark> (via [input.graphql] 👉@link(url: "https://example.dev/zoo", import: "@aardvark @zebra")),
+          GRef <#@zebra> => GRef <https://example.dev/zoo#@zebra> (via [input.graphql] 👉@link(url: "https://example.dev/zoo", import: "@aardvark @zebra")),
+          GRef <https://example.dev/zoo#@aardvark> => GRef <https://example.dev/aardvark#@> (via [zoo.graphql] 👉@link(url: "https://example.dev/aardvark", import: "@ (as @aardvark)")),
+          GRef <https://example.dev/zoo#@zebra> => GRef <https://example.dev/animals#@zebra> (via [zoo.graphql] 👉@link(url: "https://example.dev/animals", import: "@zebra")),
+        ]
+      `);
+
+      expect(raw(result.unwrap().print())).toMatchInlineSnapshot(`
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://example.dev/aardvark") @link(url: "https://example.dev/animals") @link(url: "https://example.dev/zoo", import: ["@aardvark", "@zebra"]) @link(url: "https://specs.apollo.dev/id/v1.0")
+
+        directive @link repeatable on SCHEMA
+
+        directive @aardvark__ on OBJECT
+
+        directive @animals__zebra on OBJECT
+      `);
+    });
   });
 
   it("returns standardized versions", () => {
@@ -497,15 +528,15 @@ describe("Schema", () => {
           "via": [GraphQL request] 👉@link(url: "https://example",
         },
         Object {
-          "gref": GRef <https://example/#@barAlias>,
+          "gref": GRef <https://example/#@bar>,
           "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
-          "name": "@bar",
+          "name": "@barAlias",
           "via": [GraphQL request] 👉@link(url: "https://example",
         },
         Object {
-          "gref": GRef <https://example/#TypeAlias>,
+          "gref": GRef <https://example/#Type>,
           "linker": [builtin:schema/basic] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
-          "name": "Type",
+          "name": "TypeAlias",
           "via": [GraphQL request] 👉@link(url: "https://example",
         },
       ]
@@ -515,6 +546,7 @@ describe("Schema", () => {
   it("does not get confused", () => {
     const schema = Schema.basic(gql`
       @link(url: "https://example/one")
+      @one(url: "https://example/one")
       @one(url: "https://example/two")
       @two(urlxx: "https://zya")
     `);

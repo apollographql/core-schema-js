@@ -11,11 +11,14 @@ import { groupBy, maybe, only } from './each'
 import { De } from './de'
 import { byName, isAst } from './is'
 import err from './error'
+import gql from './gql'
+import directives from './directives'
 
 const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/core/v0.1', 'feature'],
   ['https://specs.apollo.dev/core/v0.2', 'feature'],
   ['https://specs.apollo.dev/link/v0.3', 'url'],
+  ['https://specs.apollo.dev/link/v1.0', 'url'],
 ])
 
 export const LINK_DIRECTIVES = new Set(
@@ -149,6 +152,9 @@ export class Linker {
     if (args[urlArg] !== url) return
     return new this(strap, url, urlArg)
   }
+
+  static readonly DEFAULT = this.bootstrap(only(directives(gql
+    `@link(url: "https://specs.apollo.dev/link/v1.0")`)))!
 
   protected constructor(public readonly strap: DirectiveNode,
     public readonly url: LinkUrl,

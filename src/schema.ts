@@ -1,7 +1,7 @@
-import recall, { replay, use } from '@protoplasm/recall'
+import recall, { getResult, replay, report, use } from '@protoplasm/recall'
 import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refNodesIn, Defs, isLocatable, Locatable, fill, De } from './de'
+import { refNodesIn, Defs, isLocatable, Locatable, fill, De, Def, isRedirect } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
 import { GRef, byGref } from './gref'
@@ -9,6 +9,7 @@ import Scope, { including, IScope } from './scope'
 import { isAst } from './is'
 import gql from './gql'
 import LinkUrl from './link-url'
+import {concat, first, flat} from './each'
 export class Schema implements Defs {  
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
     if (frame instanceof Schema)
@@ -60,13 +61,13 @@ export class Schema implements Defs {
   get url() { return this.scope.url }
   get self() { return this.scope.self }
 
-  *[Symbol.iterator]() {
+  *[Symbol.iterator](): Iterator<Def> {
     const {scope} = this
     for (const def of this.document.definitions) {
       if (isLocatable(def)) yield scope.denormalize(def)
     }
     for (const link of scope) {
-      if (!link.name || !link.gref.name || link.implicit) continue
+      if (!link.name || !link.gref.name || link.implicit || !link.via) continue
       yield {
         code: 'Redirect' as const,
         gref: GRef.named(link.name, scope.url),
@@ -122,39 +123,29 @@ export class Schema implements Defs {
   }
 
   compile(atlas?: Defs): Schema {
-    let flat = this.scope.flat
-    const directives = [...flat.linker?.synthesize(flat) ?? []]
-    let scope = flat
-    while (scope[Symbol.iterator]().next().value) {
-      scope = scope.child(including(refNodesIn(directives)))
-      directives.push(...scope.linker?.synthesize(scope) ?? [])
-    }
-    
-    const header: De<SchemaExtensionNode>[] = directives.length
-      ? [{
-          kind: Kind.SCHEMA_EXTENSION,
-          directives,
-          gref: GRef.schema(this.url)
-        }] : []
-    const extras = [...fill([...header, ...this], atlas)]
-    scope = scope.child(including(refNodesIn(extras))).flat
-    
-    const finalDirs = [...scope.linker?.synthesize(scope) ?? []]
-    const hdr: Defs = directives.length
-      ? [{
-          kind: Kind.SCHEMA_EXTENSION,
-          directives: finalDirs,
-          gref: GRef.schema(this.url)
-        }] : []
+    const result = getResult(() => {
+      const extras = [...fill(this, atlas)]
+      const scope = this.scope.child(including(refNodesIn(extras))).flat
+      const header = scope.header()
+      const body = [...pruneLinks(this)]
+      const linkExtras = [...fill(concat(header, extras), atlas)]
+      return {extras, scope, header, body, linkExtras}
+    })
+    report(result.log)
 
+    const {extras, scope, header, body, linkExtras} = result.unwrap()    
+    const redirects = byGref(result.log.collectUnique(isRedirect))
+    console.log(redirects)
+    
     return Schema.from({
       kind: Kind.DOCUMENT,
       definitions: [
-        ...scope.renormalizeDefs([
-          ...hdr,
-          ...pruneLinks(this),
-          ...extras
-        ])
+        ...scope.renormalizeDefs(concat(
+          header,
+          body,
+          linkExtras,
+          extras
+        ))
       ]
     })
   }
@@ -173,7 +164,7 @@ export default Schema
 
 const selfIn = recall(
   function self(scope: IScope, directives: Iterable<DirectiveNode>): Maybe<Link> {
-    for (const dir of directives) {
+    for (const dir of directives) { 
       const self = id(scope, dir)
       if (self) return self
     }

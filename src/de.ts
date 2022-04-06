@@ -14,7 +14,7 @@ import LinkUrl from './link-url'
  */
 export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
   err('NoDefinition', {
-    message: 'no definitions found for reference',
+    message: `no definitions found for reference: ${gref}`,
     gref,
     nodes
   })
@@ -25,7 +25,7 @@ export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
  * easier to move them between documents, which may have different sets of `@link`
  * directives (and thus different namespaces).
  */
-export type De<T> = T & any
+export type De<T> = T & HasGref
   // T extends (infer E)[]
   //   ? De<E>[]
   //   :
@@ -55,7 +55,7 @@ export interface Redirect {
   code: 'Redirect'
   gref: GRef
   toGref: GRef
-  via?: DirectiveNode
+  via: DirectiveNode
 }
 
 export const isRedirect = (o: any): o is Redirect => o?.code === 'Redirect'
@@ -78,43 +78,51 @@ export type Located = Locatable & HasGref
  * @param defs
  * @returns
  */
-export function *fill(source: Defs, atlas?: Defs): Defs {
+export function *fill(source: Defs, atlas?: Defs): Iterable<De<DefinitionNode>> {
   const notDefined = new Map<GRef, Locatable[]>()
-  const failed = new Set<GRef>()
-  const added = new Set<GRef>()
+  const seen = new Set<GRef>(byGref(onlyDefinitions(source)).keys())
   const atlasDefs = atlas ? byGref(atlas) : null
-
-  const ingest = (defs: Defs) => {
-    for (const node of refNodesIn(defs)) {
-      if (isRedirect(node)) {
-        report(node)
-        // todo: query redirect
-        continue
-      }
-      const defs = byGref(source).get(node.gref)
-      if (!defs && !added.has(node.gref) && node.gref.graph !== LinkUrl.GRAPHQL_SPEC)
-        if (notDefined.has(node.gref))
-          notDefined.get(node.gref)!.push(node)
-        else
-          notDefined.set(node.gref, [node])
-    }
-  }
 
   ingest(source)
   while (notDefined.size) {
     const [ref, nodes] = notDefined.entries().next().value
     notDefined.delete(ref)
-    if (failed.has(ref) || added.has(ref)) continue
+    if (seen.has(ref)) continue
+    seen.add(ref)
     const defs = atlasDefs?.get(ref)
     if (!defs) {
       report(ErrNoDefinition(ref, ...nodes))
-      failed.add(ref)
-    } else {
-      ingest(defs)
-      added.add(ref)
-      yield* defs
+      continue
+    }
+    seen.add(ref)
+    ingest(defs)
+    yield* onlyDefinitions(defs)
+  }
+
+  function ingest(defs: Defs) {
+    for (const node of refNodesIn(defs)) {
+      if (isRedirect(node)) {
+        report(node)
+        addGref(node.toGref, node.via)
+        continue
+      }
+      addGref(node.gref, node)
     }
   }
+
+  function addGref(gref: GRef, node: Locatable) {
+    if (seen.has(gref) || gref.graph === LinkUrl.GRAPHQL_SPEC)// || byGref(source).get(gref))
+      return
+    const existing = notDefined.get(gref)
+    if (existing)
+      existing.push(node)
+    else
+      notDefined.set(gref, [node])
+  }
+}
+
+function *onlyDefinitions(defs: Defs): Iterable<De<DefinitionNode>> {
+  for (const def of defs) if (!isRedirect(def)) yield def
 }
 
 export function *refNodesIn(defs: Defs | Iterable<ASTNode>): Iterable<Located | Redirect> {
