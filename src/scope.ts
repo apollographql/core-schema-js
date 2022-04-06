@@ -9,6 +9,12 @@ import { getPrefix, scopeNameFor, toPrefixed } from './names'
 import ScopeMap from './scope-map'
 import err from './error'
 
+export const ErrExtraImport = (gref: GRef, node: ASTNode) =>
+  err('ExtraImport', {
+    message: `extra import of ${gref} ignored`,
+    gref, node
+  })
+
 /**
  * Scopes link local names to global graph locations.
  */
@@ -35,12 +41,6 @@ export interface IScope extends Iterable<Link> {
 export interface IScopeMut extends IScope {
   add(link: Link): void
 }
-
-export const ErrExtraImport = (gref: GRef, node: ASTNode) =>
-  err('ExtraImport', {
-    message: `extra import of ${gref} ignored`,
-    gref, node
-  })
 
 export class Scope implements IScope {
   static readonly EMPTY = this.create()

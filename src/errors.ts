@@ -2,12 +2,15 @@
 // regenerate when new error types are added anywhere in the project.
 // to regenerate: npm run build && node ./generate-errors
 
-import { type ErrNoDefinition } from "./de";
-import { type ErrBadImport } from "./linker";
+import { ErrNoDefinition } from "./de";
+import { ErrBadImport } from "./linker";
+import { ErrExtraImport } from "./scope";
 
-export type AnyError = ReturnType<typeof ErrNoDefinition | typeof ErrBadImport>;
+export type AnyError = ReturnType<
+  typeof ErrNoDefinition | typeof ErrBadImport | typeof ErrExtraImport
+>;
 
-const ERROR_CODES = new Set(["NoDefinition", "BadImport"]);
+const ERROR_CODES = new Set(["NoDefinition", "BadImport", "ExtraImport"]);
 
 export function isAnyError(o: any): o is AnyError {
   return ERROR_CODES.has(o?.code);
