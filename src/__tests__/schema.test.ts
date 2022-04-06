@@ -1,12 +1,12 @@
 import { Kind, parse, Source, print } from "graphql";
-import { fill, isRedirect, Locatable, refNodesIn } from "../de";
+import { Locatable, refNodesIn } from "../de";
 import gql from "../gql";
 import { GRef } from "../gref";
 import LinkUrl from "../link-url";
 import Schema from "../schema";
 import { Atlas } from "../atlas";
 import raw from "../snapshot-serializers/raw";
-import recall, { getResult } from "@protoplasm/recall";
+import { getResult } from "@protoplasm/recall";
 
 const base = Schema.from(
   parse(

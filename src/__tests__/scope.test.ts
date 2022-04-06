@@ -1,4 +1,4 @@
-import { EnumValueDefinitionNode, EnumValueNode, Kind } from 'graphql'
+import { EnumValueDefinitionNode, Kind } from 'graphql'
 import Scope from '../scope'
 
 describe('a scope', () => {
