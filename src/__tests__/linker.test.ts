@@ -18,7 +18,7 @@ describe("Linker", () => {
         ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "", import: ["@key"]),
+          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", import: ["@key"]),
         ]
       `);
 
@@ -85,7 +85,7 @@ describe("Linker", () => {
       ).toMatchInlineSnapshot(`
         Iterable [
           <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: ["@key"]),
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/join", as: "", import: ["Graph", {name: "@type", as: "@joinType"}]),
+          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/join", import: ["Graph", {name: "@type", as: "@joinType"}]),
         ]
       `);
     });

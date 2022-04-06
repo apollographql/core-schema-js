@@ -78,7 +78,7 @@ export type Located = Locatable & HasGref
  * @param defs
  * @returns
  */
-export function *fill(source: Defs, atlas?: Defs): Iterable<De<DefinitionNode>> {
+export function *fill(source: Defs, atlas?: Defs): Defs {
   const notDefined = new Map<GRef, Locatable[]>()
   const seen = new Set<GRef>(byGref(onlyDefinitions(source)).keys())
   const atlasDefs = atlas ? byGref(atlas) : null
@@ -96,13 +96,12 @@ export function *fill(source: Defs, atlas?: Defs): Iterable<De<DefinitionNode>> 
     }
     seen.add(ref)
     ingest(defs)
-    yield* onlyDefinitions(defs)
+    yield* defs
   }
 
   function ingest(defs: Defs) {
     for (const node of refNodesIn(defs)) {
       if (isRedirect(node)) {
-        report(node)
         addGref(node.toGref, node.via)
         continue
       }

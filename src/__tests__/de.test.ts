@@ -62,6 +62,18 @@ describe("fill", () => {
         Array [
           "NoDefinition",
           Array [
+            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
+          ],
+        ],
+        Array [
+          "NoDefinition",
+          Array [
+            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
+          ],
+        ],
+        Array [
+          "NoDefinition",
+          Array [
             <https://specs/me#ID>[example] id: 👉ID!,
           ],
         ],
@@ -69,18 +81,6 @@ describe("fill", () => {
           "NoDefinition",
           Array [
             <https://specs/me#String>[example] directive @key(fields: 👉String) on OBJECT,
-          ],
-        ],
-        Array [
-          "NoDefinition",
-          Array [
-            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
-          ],
-        ],
-        Array [
-          "NoDefinition",
-          Array [
-            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
           ],
         ],
         Array [
@@ -165,6 +165,10 @@ describe("a subgraph test", () => {
     `);
     expect([...refNodesIn(schema)]).toMatchInlineSnapshot(`
       Array [
+        GRef <#@key> => GRef <https://specs.apollo.dev/federation/v1.0#@key> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        GRef <#@requires> => GRef <https://specs.apollo.dev/federation/v1.0#@requires> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        GRef <#@provides> => GRef <https://specs.apollo.dev/federation/v1.0#@provides> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
+        GRef <#@external> => GRef <https://specs.apollo.dev/federation/v1.0#@external> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
         <>[subgraph-test.graphql] 👉extend schema,
         <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/link/v0.3"),
         <https://specs.apollo.dev/link/v0.3#@>[subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0",
@@ -180,10 +184,6 @@ describe("a subgraph test", () => {
         <https://specs.apollo.dev/federation/v1.0#@key>[subgraph-test.graphql] 👉directive @key(fields: federation__FieldSet!) repeatable on OBJECT,
         <https://specs.apollo.dev/federation/v1.0#FieldSet>[subgraph-test.graphql] directive @key(fields: 👉federation__FieldSet!) repeatable on OBJECT,
         <https://specs.apollo.dev/federation/v1.0#FieldSet>[subgraph-test.graphql] 👉scalar federation__FieldSet,
-        GRef <#@key> => GRef <https://specs.apollo.dev/federation/v1.0#@key> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
-        GRef <#@requires> => GRef <https://specs.apollo.dev/federation/v1.0#@requires> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
-        GRef <#@provides> => GRef <https://specs.apollo.dev/federation/v1.0#@provides> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
-        GRef <#@external> => GRef <https://specs.apollo.dev/federation/v1.0#@external> (via [subgraph-test.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v1.0"),
       ]
     `);
 

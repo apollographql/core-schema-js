@@ -1,12 +1,14 @@
-import recall, { use } from '@protoplasm/recall'
+import recall, { report, use } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, Kind, SchemaExtensionNode, visit } from 'graphql'
 import { Linker, type Link } from './linker'
 import { De, Defs, hasRef, isLocatable, isLocated, isRedirect, Locatable, Located, Redirect } from './de'
-import GRef from './gref'
+import GRef, { byGref } from './gref'
 import { isAst, hasName } from './is'
 import LinkUrl from './link-url'
 import { getPrefix, scopeNameFor, toPrefixed } from './names'
 import ScopeMap from './scope-map'
+import { first, flat, groupBy, only } from './each'
+import err from './error'
 
 /**
  * Scopes link local names to global graph locations.
@@ -27,13 +29,19 @@ export interface IScope extends Iterable<Link> {
   locate(node: Locatable): GRef
   name(node: GRef): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
-  renormalizeDefs(defs: Defs): Iterable<DefinitionNode>
+  renormalizeDefs(defs: Defs, redirects?: Iterable<Redirect>): Iterable<DefinitionNode>
   child(fn: (scope: IScopeMut) => void): Readonly<IScope>
 }
 
 export interface IScopeMut extends IScope {
   add(link: Link): void
 }
+
+export const ErrExtraImport = (gref: GRef, node: ASTNode) =>
+  err('ExtraImport', {
+    message: `extra import of ${gref} ignored`,
+    gref, node
+  })
 
 export class Scope implements IScope {
   static readonly EMPTY = this.create()
@@ -121,13 +129,13 @@ export class Scope implements IScope {
   }
 
   @use(recall)
-  renormalize<T extends ASTNode>(node: De<T>): T {
+  renormalize<T extends ASTNode>(node: De<T>, redirects?: Readonly<Map<GRef, Redirect>>): T {    
     const self = this
     return visit(node, {
       enter<T extends ASTNode>(node: T, _: any, ): T | null | undefined {
-        if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
+        if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return // todo - remove?
         if (!hasName(node) || !isLocated(node)) return
-        const path = self.name(node.gref)
+        const path = self.name(redirect(node.gref, redirects))
         if (!path) return
         return {
           ...node,
@@ -138,9 +146,19 @@ export class Scope implements IScope {
   }
 
   *renormalizeDefs(defs: Defs): Iterable<DefinitionNode> {
+    const redirects = new Map<GRef, Redirect>()
+    for (const redir of defs) if (isRedirect(redir)) {
+      const existing = redirects.get(redir.gref)
+      if (existing) {
+        if (existing.toGref !== redir.toGref)
+          report(ErrExtraImport(redir.gref, redir.via))
+        continue
+      }
+      redirects.set(redir.gref, redir)
+    }
     for (const def of defs)
       if (isRedirect(def)) continue
-      else yield this.renormalize(def)
+      else yield this.renormalize(def, redirects)
   }
 
   *[Symbol.iterator]() {
@@ -211,17 +229,40 @@ export default Scope
  * @param refs
  */
 export const including = (refs: Iterable<Located | Redirect>) => (scope: IScopeMut) => {
-  for (const node of refs) {    
-    const graph = node.gref.graph
-    if (!graph) continue
-    const found = scope.name(node.gref)
-    if (found) continue
+  for (const node of refs) {
+    if (isRedirect(node)) {
+      const src = scope.name(node.gref)
+      if (!src) continue
+      const [prefix, name] = src
+      if (prefix) continue
+      scope.add({
+        ...scope.lookup(name),
+        name,
+        gref: node.toGref,
+      })
+    } else {
+      const graph = node.gref.graph
+      if (!graph) continue
+      const found = scope.name(node.gref)
+      if (found) continue
+      addGraph(graph)
+    }
+  }
+
+  function addGraph(graph: LinkUrl) {
     for (const name of graph.suggestNames()) {
       if (scope.has(name)) continue
       scope.add({
-        name, gref: node.gref.setName('')
+        name, gref: GRef.schema(graph)
       })
       break
     }
   }
+}
+
+
+function redirect(gref: GRef, redirects?: Readonly<Map<GRef, Redirect>>): GRef {
+  if (!redirects) return gref
+  while (redirects.has(gref)) gref = redirects.get(gref)!.toGref
+  return gref
 }

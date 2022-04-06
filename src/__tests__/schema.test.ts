@@ -173,12 +173,12 @@ describe("Schema", () => {
     );
     expect(schema).toMatchInlineSnapshot(`
       Schema [
-        <https://specs/me>[schema-with-id.graphql] 👉@id(url: "https://specs/me"),
-        <https://specs/me#@>[schema-with-id.graphql] 👉directive @me repeatable on SCHEMA,
-        <https://specs/me#Something>[schema-with-id.graphql] 👉scalar Something @key,
         GRef <https://specs/me#@requires> => GRef <https://specs.apollo.dev/federation/v2.0#@requires> (via [schema-with-id.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v2.0"),
         GRef <https://specs/me#@key> => GRef <https://specs.apollo.dev/federation/v2.0#@key> (via [schema-with-id.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v2.0"),
         GRef <https://specs/me#@prov> => GRef <https://specs.apollo.dev/federation/v2.0#@provides> (via [schema-with-id.graphql] 👉@link(url: "https://specs.apollo.dev/federation/v2.0"),
+        <https://specs/me>[schema-with-id.graphql] 👉@id(url: "https://specs/me"),
+        <https://specs/me#@>[schema-with-id.graphql] 👉directive @me repeatable on SCHEMA,
+        <https://specs/me#Something>[schema-with-id.graphql] 👉scalar Something @key,
       ]
     `);
 
@@ -277,6 +277,7 @@ describe("Schema", () => {
 
     expect([...compiled]).toMatchInlineSnapshot(`
       Array [
+        GRef <#@key> => GRef <https://specs.apollo.dev/federation/v1.0#@key> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"])),
         <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"]) @link(url: "https://specs.apollo.dev/id/v1.0"),
         <#User>[subgraph] 👉type User @key(fields: "x y z") {,
         <https://specs.apollo.dev/link/v0.3#@>[link.graphql] 👉directive @link(url: Url!, as: Name, import: Imports),
@@ -285,7 +286,6 @@ describe("Schema", () => {
         <https://specs.apollo.dev/link/v0.3#Imports>[link.graphql] 👉scalar Imports,
         <https://specs.apollo.dev/federation/v1.0#@key>[fed.graphql] 👉directive @key(fields: FieldSet!) on OBJECT,
         <https://specs.apollo.dev/federation/v1.0#FieldSet>[fed.graphql] 👉scalar FieldSet,
-        GRef <#@key> => GRef <https://specs.apollo.dev/federation/v1.0#@key> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation/v1.0", import: ["@key"])),
       ]
     `);
 
@@ -311,7 +311,7 @@ describe("Schema", () => {
     `);
   });
 
-  describe("compiles transitive links", () => {
+  describe("compiles -", () => {
     const atlas = Schema.basic(gql`${"zoo.graphql"}
       @id(url: "https://example.dev/zoo")
       @link(url: "https://example.dev/aardvark", import: "@ (as @aardvark)")
@@ -322,15 +322,15 @@ describe("Schema", () => {
       directive @link repeatable on SCHEMA
     `);
 
-    it("handles transitive @links", () => {
+    it("transitive @links", () => {
       expect(atlas).toMatchInlineSnapshot(`
         Schema [
+          GRef <https://example.dev/zoo#@aardvark> => GRef <https://example.dev/aardvark#@> (via [zoo.graphql] 👉@link(url: "https://example.dev/aardvark", import: "@ (as @aardvark)")),
+          GRef <https://example.dev/zoo#@zebra> => GRef <https://example.dev/animals#@zebra> (via [zoo.graphql] 👉@link(url: "https://example.dev/animals", import: "@zebra")),
           <https://example.dev/zoo>[zoo.graphql] 👉@id(url: "https://example.dev/zoo"),
           <https://example.dev/aardvark#@>[zoo.graphql] 👉directive @aardvark on OBJECT,
           <https://example.dev/animals#@zebra>[zoo.graphql] 👉directive @zebra on OBJECT,
           <https://specs.apollo.dev/link/v0.3#@>[zoo.graphql] 👉directive @link repeatable on SCHEMA,
-          GRef <https://example.dev/zoo#@aardvark> => GRef <https://example.dev/aardvark#@> (via [zoo.graphql] 👉@link(url: "https://example.dev/aardvark", import: "@ (as @aardvark)")),
-          GRef <https://example.dev/zoo#@zebra> => GRef <https://example.dev/animals#@zebra> (via [zoo.graphql] 👉@link(url: "https://example.dev/animals", import: "@zebra")),
         ]
       `);
 
@@ -340,23 +340,76 @@ describe("Schema", () => {
 
       const result = getResult(() => schema.compile(atlas));
       expect([...result.errors()]).toEqual([]);
-      expect(result.log.collectUnique(isRedirect)).toMatchInlineSnapshot(`
-        Set [
-          GRef <#@aardvark> => GRef <https://example.dev/zoo#@aardvark> (via [input.graphql] 👉@link(url: "https://example.dev/zoo", import: "@aardvark @zebra")),
-          GRef <#@zebra> => GRef <https://example.dev/zoo#@zebra> (via [input.graphql] 👉@link(url: "https://example.dev/zoo", import: "@aardvark @zebra")),
-          GRef <https://example.dev/zoo#@aardvark> => GRef <https://example.dev/aardvark#@> (via [zoo.graphql] 👉@link(url: "https://example.dev/aardvark", import: "@ (as @aardvark)")),
-          GRef <https://example.dev/zoo#@zebra> => GRef <https://example.dev/animals#@zebra> (via [zoo.graphql] 👉@link(url: "https://example.dev/animals", import: "@zebra")),
+      const output = result.unwrap();
+
+      expect(output).toMatchInlineSnapshot(`
+        Schema [
+          GRef <#@zebra> => GRef <https://example.dev/animals#@zebra> (via <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://example.dev/animals", import: ["@zebra"])),
+          <>[+] extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://example.dev/aardvark") @link(url: "https://example.dev/animals", import: ["@zebra"]),
+          <https://specs.apollo.dev/link/v0.3#@>[zoo.graphql] 👉directive @link repeatable on SCHEMA,
+          <https://example.dev/aardvark#@>[zoo.graphql] 👉directive @aardvark on OBJECT,
+          <https://example.dev/animals#@zebra>[zoo.graphql] 👉directive @zebra on OBJECT,
         ]
       `);
 
-      expect(raw(result.unwrap().print())).toMatchInlineSnapshot(`
-        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://example.dev/aardvark") @link(url: "https://example.dev/animals") @link(url: "https://example.dev/zoo", import: ["@aardvark", "@zebra"]) @link(url: "https://specs.apollo.dev/id/v1.0")
+      expect(output.scope).toMatchInlineSnapshot(`
+        Scope [
+          Object {
+            "gref": GRef <https://specs.apollo.dev/link/v0.3>,
+            "linker": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+            "name": "link",
+            "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+          },
+          Object {
+            "gref": GRef <https://specs.apollo.dev/link/v0.3#@>,
+            "implicit": true,
+            "linker": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+            "name": "@link",
+            "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+          },
+          Object {
+            "gref": GRef <https://example.dev/aardvark>,
+            "linker": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+            "name": "aardvark",
+            "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://example.dev/aardvark"),
+          },
+          Object {
+            "gref": GRef <https://example.dev/aardvark#@>,
+            "implicit": true,
+            "linker": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+            "name": "@aardvark",
+            "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://example.dev/aardvark"),
+          },
+          Object {
+            "gref": GRef <https://example.dev/animals>,
+            "linker": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+            "name": "animals",
+            "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://example.dev/animals", import: ["@zebra"]),
+          },
+          Object {
+            "gref": GRef <https://example.dev/animals#@>,
+            "implicit": true,
+            "linker": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+            "name": "@animals",
+            "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://example.dev/animals", import: ["@zebra"]),
+          },
+          Object {
+            "gref": GRef <https://example.dev/animals#@zebra>,
+            "linker": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/link/v0.3"),
+            "name": "@zebra",
+            "via": <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://example.dev/animals", import: ["@zebra"]),
+          },
+        ]
+      `);
+
+      expect(raw(output.print())).toMatchInlineSnapshot(`
+        extend schema @link(url: "https://specs.apollo.dev/link/v0.3") @link(url: "https://example.dev/aardvark") @link(url: "https://example.dev/animals", import: ["@zebra"])
 
         directive @link repeatable on SCHEMA
 
-        directive @aardvark__ on OBJECT
+        directive @aardvark on OBJECT
 
-        directive @animals__zebra on OBJECT
+        directive @zebra on OBJECT
       `);
     });
   });

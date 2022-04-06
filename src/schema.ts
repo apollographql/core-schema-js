@@ -1,5 +1,5 @@
 import recall, { getResult, replay, report, use } from '@protoplasm/recall'
-import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode } from 'graphql'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaExtensionNode, SchemaDefinitionNode, visit, BREAK } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { refNodesIn, Defs, isLocatable, Locatable, fill, De, Def, isRedirect } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
@@ -63,9 +63,6 @@ export class Schema implements Defs {
 
   *[Symbol.iterator](): Iterator<Def> {
     const {scope} = this
-    for (const def of this.document.definitions) {
-      if (isLocatable(def)) yield scope.denormalize(def)
-    }
     for (const link of scope) {
       if (!link.name || !link.gref.name || link.implicit || !link.via) continue
       yield {
@@ -74,6 +71,10 @@ export class Schema implements Defs {
         toGref: link.gref,
         via: link.via,
       }
+    }
+
+    for (const def of this.document.definitions) {
+      if (isLocatable(def)) yield scope.denormalize(def)
     }
   }
 
@@ -123,19 +124,11 @@ export class Schema implements Defs {
   }
 
   compile(atlas?: Defs): Schema {
-    const result = getResult(() => {
-      const extras = [...fill(this, atlas)]
-      const scope = this.scope.child(including(refNodesIn(extras))).flat
-      const header = scope.header()
-      const body = [...pruneLinks(this)]
-      const linkExtras = [...fill(concat(header, extras), atlas)]
-      return {extras, scope, header, body, linkExtras}
-    })
-    report(result.log)
-
-    const {extras, scope, header, body, linkExtras} = result.unwrap()    
-    const redirects = byGref(result.log.collectUnique(isRedirect))
-    console.log(redirects)
+    const extras = [...fill(this, atlas)]
+    const scope = this.scope.child(including(refNodesIn(extras))).flat
+    const header = scope.header()
+    const body = [...pruneLinks(this)]
+    const linkExtras = [...fill(concat(header, extras), atlas)]
     
     return Schema.from({
       kind: Kind.DOCUMENT,
@@ -147,7 +140,27 @@ export class Schema implements Defs {
           extras
         ))
       ]
-    })
+    }).shrinkwrap()
+  }
+
+  shrinkwrap(): Schema {
+    const {scope} = this
+    const safe = new Set<DirectiveNode>()
+    for (const ref of this.refs) {
+      const name = this.scope.name(ref.gref)
+      if (!ref.gref.graph || !name) continue
+      const [prefix, bare] = name
+      const link = scope.lookup(prefix ?? bare)      
+      if (!link?.via) continue
+      safe.add(link.via)
+    }
+    const candidates = new Set([...this.scope].map(link => link.via))
+    return Schema.from(visit(this.document, {
+      Directive(dir) {
+        if (!candidates.has(dir)) return BREAK
+        if (!safe.has(dir)) return null
+      }
+    }), this.scope.parent)
   }
 
   print(): string {
