@@ -4,13 +4,13 @@ import err from "./error"
 type ItemType<G extends (item: any) => any> = Parameters<G>[0]
 type ElementType<I extends Iterable<any>> = I extends Iterable<infer T> ? T : never
 
-const ErrEmpty = (iterable?: Iterable<any>) =>
+export const ErrEmpty = (iterable?: Iterable<any>) =>
   err('Empty', {
     message: 'expected at least one value, found zero',
     iterable
   })
 
-const ErrTooMany = (iterable: Iterable<any>) =>
+export const ErrTooMany = (iterable: Iterable<any>) =>
   err('TooMany', {
     message: 'expected at most one value, found more',
     iterable
