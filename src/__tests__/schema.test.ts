@@ -621,6 +621,24 @@ describe("Schema", () => {
       ]
     `);
   });
+
+  it("dangerously removes headers", () => {
+    const schema = Schema.basic(gql`
+      @link(url: "https://some-link/spec")
+      @link(url: "https://another-link/otherSpec")
+
+      type User @otherSpec {
+        id: ID!
+        field: Foo
+      }
+    `);
+    expect(schema.dangerousRemoveHeaders().print()).toMatchInlineSnapshot(`
+      "type User @otherSpec {
+        id: ID!
+        field: Foo
+      }"
+    `);
+  });
 });
 
 function ref(name: string): Locatable {

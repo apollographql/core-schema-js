@@ -144,8 +144,9 @@ export class Scope implements IScope {
     }) as T
   }
 
-  *renormalizeDefs(defs: Defs): Iterable<DefinitionNode> {
+  *renormalizeDefs(defs: Defs): Iterable<DefinitionNode> {    
     const redirects = new Map<GRef, Redirect>()
+    const onlyDefs: De<DefinitionNode>[] = []
     for (const redir of defs) if (isRedirect(redir)) {
       const existing = redirects.get(redir.gref)
       if (existing) {
@@ -154,8 +155,9 @@ export class Scope implements IScope {
         continue
       }
       redirects.set(redir.gref, redir)
-    }
-    for (const def of defs)
+    } else { onlyDefs.push(redir) }
+  
+    for (const def of onlyDefs)
       if (isRedirect(def)) continue
       else yield this.renormalize(def, redirects)
   }

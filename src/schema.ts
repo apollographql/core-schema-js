@@ -164,12 +164,12 @@ export class Schema implements Defs {
     }), this.scope.parent)
   }
 
-  // dangerousRemoveHeaders(): Schema {
-  //   return Schema.from({
-  //     kind: Kind.DOCUMENT,
-  //     definitions: [...]
-  //   })
-  // }
+  dangerousRemoveHeaders(): Schema {
+    return Schema.from({
+      kind: Kind.DOCUMENT,
+      definitions: [...this.scope.renormalizeDefs(pruneLinks(this))]
+    }, this.scope)
+  }
 
   print(): string {
     return print(this.document)
@@ -193,17 +193,19 @@ const selfIn = recall(
   }
 )
 
-export function *pruneLinks(defs: Defs): Defs {
-  for (const def of defs) {
-    if (isRedirect(def)) continue
-    if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
-      if (!def.directives) yield def
-      const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has((dir as any).gref))
-      if (!directives?.length && !def.operationTypes?.length && !(def as SchemaDefinitionNode).description)
+export const pruneLinks = recall(
+  function *pruneLinks(defs: Defs): Defs {
+    for (const def of defs) {
+      if (isRedirect(def)) continue
+      if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
+        if (!def.directives) yield def
+        const directives = def.directives?.filter(dir => !LINK_DIRECTIVES.has((dir as any).gref))
+        if (!directives?.length && !def.operationTypes?.length && !(def as SchemaDefinitionNode).description)
+          continue
+        yield { ...def, directives }
         continue
-      yield { ...def, directives }
-      continue
+      }
+      yield def
     }
-    yield def
   }
-}
+)
