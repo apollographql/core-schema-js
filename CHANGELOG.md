@@ -4,13 +4,14 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-## vNEXT
+## v0.3
 
 - Significant API changes (see [README](./README.md))
 - Support for `@link(url:, import:)`. Reading schemas with legacy `@core` directives is still supported.
-- Compile definitions into schemas. Use `schema.compile(atlas?)` to find any definitions from `atlas` into `schema`
+- Compile definitions into schemas. Use `schema.compile(atlas?)` to copy necessary definitions from `atlas` into `schema`
 - Report non-fatal errors with `report`, get them with `getResult`. Example: `getResult(() => runMyValidations(schema.compile(atlas))).errors()` will yield all errors which occurred during compilation or validation.
 - Add support for Node 17 [PR #41](https://github.com/apollographql/core-schema-js/pull/41)
+
 ## v0.2.2
 - Don't call `GraphQLError.toString()` recursively [PR #36](https://github.com/apollographql/core-schema-js/pull/36)
 
