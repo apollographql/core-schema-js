@@ -193,8 +193,8 @@ const selfIn = recall(
   }
 )
 
-export const pruneLinks = recall(
-  function *pruneLinks(defs: Defs): Defs {
+export const pruneLinks = replay(
+  function *pruneLinks(defs: Defs) {
     for (const def of defs) {
       if (isRedirect(def)) continue
       if (isAst(def, Kind.SCHEMA_DEFINITION, Kind.SCHEMA_EXTENSION)) {
