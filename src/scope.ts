@@ -74,7 +74,7 @@ export class Scope implements IScope {
       if (named) return named
 
       const maybeNs = this.lookup(name)
-      if (maybeNs?.gref.name === '') {
+      if (maybeNs?.gref.isSchema()) {
         return GRef.rootDirective(maybeNs.gref.graph)
       }
     }

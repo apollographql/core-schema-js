@@ -37,6 +37,8 @@ export class GRef {
     return graph + (this.name ? `#${this.name}` : '')
   }
 
+  isSchema() { return this.name === '' }
+
   private constructor(public readonly name: string, public readonly graph?: LinkUrl) {}
 }
 
