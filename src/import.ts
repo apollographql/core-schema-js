@@ -1,4 +1,4 @@
-import { ConstDirectiveNode, DirectiveNode, Kind, Location, NamedTypeNode, Source, TokenKind } from 'graphql'
+import { ConstDirectiveNode, DirectiveNode, Kind, Location, NamedTypeNode, NameNode, Source, TokenKind } from 'graphql'
 import { Parser } from 'graphql/language/parser'
 
 export type ImportTermNode = DirectiveNode | NamedTypeNode
@@ -43,34 +43,34 @@ export class ImportsParser extends Parser {
    */
   parseImport() {
     const start = this._lexer.token
-    const local = this.parseImportElement()    
+    const first = this.parseImportElement()    
     if (this.peek(TokenKind.COLON)) {
       this.expectToken(TokenKind.COLON)
       const remote = this.parseImportElement()
-      if (remote.kind !== local.kind)
+      if (remote.kind !== first.kind)
         throw new Error('local and remote name must be same kind of reference')
       return this.node<ImportNode>(start, {
         type: 'Import',
         element: remote,
-        alias: local
+        alias: first
       })
     }
     if (this.peek(TokenKind.PAREN_L)) {
       this.expectToken(TokenKind.PAREN_L)
       this.expectKeyword('as')
-      const remote = this.parseImportElement()
-      if (remote.kind !== local.kind)
+      const local = this.parseImportElement()
+      if (local.kind !== first.kind)
         throw new Error('local and remote name must be same kind of reference')
       this.expectToken(TokenKind.PAREN_R)
       return this.node<ImportNode>(start, {
         type: 'Import',
-        element: remote,
+        element: first,
         alias: local
       })      
     }
     return this.node<ImportNode>(start, {
       type: 'Import',
-      element: local
+      element: first
     })
   }
 
@@ -82,10 +82,19 @@ export class ImportsParser extends Parser {
 
   parseDirectiveName() {
     const start = this._lexer.token
-    this.expectToken(TokenKind.AT)
+    const at = this.expectToken(TokenKind.AT)
+    if (this.peek(TokenKind.NAME)) {
+      // accept immediately adjacent names only
+      const tok = this._lexer.token
+      if (tok.line === at.line && tok.column === at.column + 1)
+        return this.node<ConstDirectiveNode>(start, {
+          kind: Kind.DIRECTIVE,
+          name: this.parseName()
+        })
+    }
     return this.node<ConstDirectiveNode>(start, {
       kind: Kind.DIRECTIVE,
-      name: this.parseName()
+      name: this.node<NameNode>(at, { kind: Kind.NAME, value: '' })
     })
   }
 }

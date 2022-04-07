@@ -1,12 +1,19 @@
-import recall, { use } from '@protoplasm/recall'
-import { ASTNode, Kind, visit } from 'graphql'
+import recall, { report, use } from '@protoplasm/recall'
+import { ASTNode, DefinitionNode, Kind, SchemaExtensionNode, visit } from 'graphql'
 import { Linker, type Link } from './linker'
-import { De, Def, Defs, hasRef, isLocatable, isLocated, Locatable, Located } from './de'
+import { De, Defs, hasRef, isLocatable, isLocated, isRedirect, Locatable, Located, Redirect } from './de'
 import GRef from './gref'
 import { isAst, hasName } from './is'
 import LinkUrl from './link-url'
 import { getPrefix, scopeNameFor, toPrefixed } from './names'
 import ScopeMap from './scope-map'
+import err from './error'
+
+export const ErrExtraImport = (gref: GRef, node: ASTNode) =>
+  err('ExtraImport', {
+    message: `extra import of ${gref} ignored`,
+    gref, node
+  })
 
 /**
  * Scopes link local names to global graph locations.
@@ -15,7 +22,7 @@ export interface IScope extends Iterable<Link> {
   readonly url?: LinkUrl
   readonly self?: Link
   readonly parent?: IScope
-  readonly linker?: Linker
+  readonly linker: Linker
   readonly flat: IScope
 
   own(name: string): Link | undefined
@@ -23,11 +30,11 @@ export interface IScope extends Iterable<Link> {
   lookup(name: string): Link | undefined
   visible(): Iterable<[string, Link]>
   entries(): Iterable<[string, Link]>
-  header(): Defs
+  header(): [De<SchemaExtensionNode>] | []
   locate(node: Locatable): GRef
-  rLocate(node: Located): [string | null, string] | undefined
+  name(node: GRef): [string | null, string] | undefined
   denormalize<T extends ASTNode>(node: T): De<T>
-  renormalizeDefs(defs: Defs): Iterable<Def>
+  renormalizeDefs(defs: Defs, redirects?: Iterable<Redirect>): Iterable<DefinitionNode>
   child(fn: (scope: IScopeMut) => void): Readonly<IScope>
 }
 
@@ -62,6 +69,16 @@ export class Scope implements IScope {
       if (found) return GRef.canon(scopeNameFor(node, name), found.gref.graph)
     }
 
+    if (isAst(node, Kind.DIRECTIVE) && !prefix) {
+      const named = this.lookup(scopeNameFor(node))?.gref
+      if (named) return named
+
+      const maybeNs = this.lookup(name)
+      if (maybeNs?.gref.isSchema()) {
+        return GRef.rootDirective(maybeNs.gref.graph)
+      }
+    }
+
     // if there was no prefix OR the prefix wasn't found,
     // treat the entire name as a local name
     //
@@ -77,20 +94,20 @@ export class Scope implements IScope {
     return this.lookup(scopeNameFor(node))?.gref ?? GRef.canon(scopeNameFor(node), this.url)
   }
 
-  header(): Defs {
-    const directives = [...this.linker?.synthesize(this) ?? []]
+  header(): [De<SchemaExtensionNode>] | [] {
+    const directives = [...this.linker.synthesize(this)]
     if (directives.length) {
       return [{ kind: Kind.SCHEMA_EXTENSION, directives, gref: GRef.schema(this.url) }]
     }
     return []
   }
 
-  rLocate(node: Located): [string | null, string] | undefined {
-    const bareName = this.reverse.lookup(node.gref)
+  name(gref: GRef): [string | null, string] | undefined {
+    const bareName = this.reverse.lookup(gref)
     if (bareName) return [null, bareName]
 
-    const prefix = this.reverse.lookup(node.gref.setName(''))
-    if (prefix) return [prefix, node.gref.name]
+    const prefix = this.reverse.lookup(gref.setName(''))
+    if (prefix) return [prefix, gref.name]
 
     return
   }
@@ -101,6 +118,7 @@ export class Scope implements IScope {
     return visit(node, {
       enter<T extends ASTNode>(node: T, _: any, ): De<T> | undefined {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
+        if (isAst(node, Kind.ENUM_VALUE_DEFINITION)) return
         if (isLocatable(node)) {
           return { ...node, gref: self.locate(node) } as De<T>
         }
@@ -110,13 +128,13 @@ export class Scope implements IScope {
   }
 
   @use(recall)
-  renormalize<T extends ASTNode>(node: De<T>): T {
+  renormalize<T extends ASTNode>(node: De<T>, redirects?: Readonly<Map<GRef, Redirect>>): T {
     const self = this
     return visit(node, {
       enter<T extends ASTNode>(node: T, _: any, ): T | null | undefined {
-        if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
+        if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return // todo - remove?
         if (!hasName(node) || !isLocated(node)) return
-        const path = self.rLocate(node)
+        const path = self.name(redirect(node.gref, redirects))
         if (!path) return
         return {
           ...node,
@@ -126,9 +144,22 @@ export class Scope implements IScope {
     }) as T
   }
 
-  *renormalizeDefs(defs: Defs): Iterable<Def> {
-    for (const def of defs)
-      yield this.renormalize(def)
+  *renormalizeDefs(defs: Defs): Iterable<DefinitionNode> {    
+    const redirects = new Map<GRef, Redirect>()
+    const onlyDefs: De<DefinitionNode>[] = []
+    for (const redir of defs) if (isRedirect(redir)) {
+      const existing = redirects.get(redir.gref)
+      if (existing) {
+        if (existing.toGref !== redir.toGref)
+          report(ErrExtraImport(redir.gref, redir.via))
+        continue
+      }
+      redirects.set(redir.gref, redir)
+    } else { onlyDefs.push(redir) }
+  
+    for (const def of onlyDefs)
+      if (isRedirect(def)) continue
+      else yield this.renormalize(def, redirects)
   }
 
   *[Symbol.iterator]() {
@@ -161,11 +192,12 @@ export class Scope implements IScope {
     }, this.parent)
   }
 
-  get linker() {
-    for (const [_, link] of this.visible()) {
-      if (link.linker) return Linker.bootstrap(link.linker)
+  get linker(): Linker {
+    for (const link of this) {
+      const linker = link.linker ? Linker.bootstrap(link.linker) : null
+      if (linker) return linker
     }
-    return
+    return this.parent?.linker ?? Linker.DEFAULT
   }
 
   //@ts-ignore — accessible via IScopeMut
@@ -192,23 +224,46 @@ export default Scope
  * const scope = Scope.create(including(someRefs))
  * ```
  *
- * The resulting Scope will be able to rLocate all refs
+ * The resulting Scope will be able to `name` all refs
  * provided.
  *
  * @param refs
  */
-export const including = (refs: Iterable<Located>) => (scope: IScopeMut) => {
-  for (const ref of refs) {
-    const graph = ref.gref.graph
-    if (!graph) continue
-    const found = scope.rLocate(ref)
-    if (found) continue
+export const including = (refs: Iterable<Located | Redirect>) => (scope: IScopeMut) => {
+  for (const node of refs) {
+    if (isRedirect(node)) {
+      const src = scope.name(node.gref)
+      if (!src) continue
+      const [prefix, name] = src
+      if (prefix) continue
+      scope.add({
+        ...scope.lookup(name),
+        name,
+        gref: node.toGref,
+      })
+    } else {
+      const graph = node.gref.graph
+      if (!graph) continue
+      const found = scope.name(node.gref)
+      if (found) continue
+      addGraph(graph)
+    }
+  }
+
+  function addGraph(graph: LinkUrl) {
     for (const name of graph.suggestNames()) {
       if (scope.has(name)) continue
       scope.add({
-        name, gref: ref.gref.setName('')
+        name, gref: GRef.schema(graph)
       })
       break
     }
   }
+}
+
+
+function redirect(gref: GRef, redirects?: Readonly<Map<GRef, Redirect>>): GRef {
+  if (!redirects) return gref
+  while (redirects.has(gref)) gref = redirects.get(gref)!.toGref
+  return gref
 }

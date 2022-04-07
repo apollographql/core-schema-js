@@ -1,19 +1,24 @@
-import recall, { replay, use } from '@protoplasm/recall'
-import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode, NameNode } from 'graphql'
+import recall, { replay, report, use } from '@protoplasm/recall'
+import { GraphQLDirective, DirectiveNode, DirectiveLocation, GraphQLScalarType, GraphQLNonNull, Kind, ConstDirectiveNode, ConstArgumentNode, ValueNode, ASTNode } from 'graphql'
 import { getArgumentValues } from 'graphql/execution/values'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { ImportNode, ImportsParser } from './import'
 import type { IScope } from './scope'
 import {LinkUrl} from './link-url'
-import { GRef } from './gref'
+import { GRef, HasGref } from './gref'
 import { scopeNameFor } from './names'
-import { groupBy } from './each'
-import { De, HasGref } from './de'
+import { groupBy, maybeOne, only } from './each'
+import { De } from './de'
+import { byName, isAst } from './is'
+import err from './error'
+import gql from './gql'
+import directives from './directives'
 
 const LINK_SPECS = new Map([
   ['https://specs.apollo.dev/core/v0.1', 'feature'],
   ['https://specs.apollo.dev/core/v0.2', 'feature'],
   ['https://specs.apollo.dev/link/v0.3', 'url'],
+  ['https://specs.apollo.dev/link/v1.0', 'url'],
 ])
 
 export const LINK_DIRECTIVES = new Set(
@@ -44,6 +49,12 @@ const Name = new GraphQLScalarType({
   }
 })
 
+export const ErrBadImport = (node: ASTNode, expectedKinds: ASTNode["kind"][]) =>
+  err('BadImport', {
+    message: `expected node of kind ${expectedKinds.join(' | ')}, got ${node.kind}`,    
+    node, expectedKinds
+  })
+
 const Imports = new GraphQLScalarType({
   name: 'Imports',
   parseValue: val => val,
@@ -53,10 +64,19 @@ const Imports = new GraphQLScalarType({
         if (value.kind === Kind.STRING)
           return value.value
         if (value.kind === Kind.OBJECT) {
-          const name = byName(value.fields).get('name')[0].value.value
-          const alias = byName(value.fields).get('as')[0].value.value
-          if (alias && alias !== name)
-            return `${alias}: ${name}`
+          const name = only(byName(value.fields).get('name')).value
+          const alias = maybeOne(byName(value.fields).get('as'))?.value
+          if (!isAst(name, Kind.STRING, Kind.ENUM)) {
+            report(ErrBadImport(name, [Kind.STRING, Kind.ENUM]))
+            return
+          }
+          if (alias && !isAst(alias, Kind.STRING, Kind.ENUM)) {
+            report(ErrBadImport(alias, [Kind.STRING, Kind.ENUM]))
+            return
+          }
+          if (alias && alias.value !== name.value)
+            return `${alias.value} : ${name.value}`
+          return name.value
         }
         return undefined
       }).filter(Boolean).join(' ')
@@ -66,8 +86,6 @@ const Imports = new GraphQLScalarType({
     return ImportsParser.fromString(value.value)
   }
 })
-
-const byName = groupBy((field: { name: NameNode }) => field.name.value)
 
 const $bootstrap = new GraphQLDirective({
   name: 'link',
@@ -84,6 +102,7 @@ export interface Link extends HasGref {
   name: string
   via?: DirectiveNode
   linker?: DirectiveNode
+  implicit?: boolean
 }
 
 const $id = new GraphQLDirective({
@@ -119,8 +138,8 @@ export class Linker {
     const self = this.bootstrap(dir)
     if (self) return self
     const other = scope.lookup('@' + dir.name.value)
-    if (!other?.linker) return
-    return Linker.bootstrap(other.linker)
+    if (!other?.via) return
+    return Linker.bootstrap(other.via)
   }
 
   @use(recall)
@@ -133,6 +152,9 @@ export class Linker {
     if (args[urlArg] !== url) return
     return new this(strap, url, urlArg)
   }
+
+  static readonly DEFAULT = this.bootstrap(only(directives(gql
+    `@link(url: "https://specs.apollo.dev/link/v1.0")`)))!
 
   protected constructor(public readonly strap: DirectiveNode,
     public readonly url: LinkUrl,
@@ -166,6 +188,7 @@ export class Linker {
         gref: GRef.rootDirective(url),
         via: directive,
         linker: this.strap,
+        implicit: true,
       }
     }
     for (const i of args.import as ImportNode[] ?? []) {
@@ -191,7 +214,7 @@ export class Linker {
       if (!url) continue      
       if (url === LinkUrl.GRAPHQL_SPEC) continue
       const linksForUrl = linksByUrl.get(url)!
-      let alias: string = ''
+      let alias: string | null = null
       const imports: [string, string][] = []
       for (const link of linksForUrl) {
         if (!link.gref.name) {
@@ -204,6 +227,7 @@ export class Linker {
           continue // root directive is implict
         imports.push([link.name, link.gref.name])
       }
+
       const args: ConstArgumentNode[] = [{
         kind: Kind.ARGUMENT,
         name: {
@@ -216,7 +240,27 @@ export class Linker {
         },
       }]
 
-      if (alias === '' || alias !== url.name) {
+      if (alias === '') {
+        yield {
+          kind: Kind.DIRECTIVE,
+          name: { kind: Kind.NAME, value: "id" },
+          arguments:  [{
+            kind: Kind.ARGUMENT,
+            name: {
+              kind: Kind.NAME,
+              value: "url"
+            },
+            value: {
+              kind: Kind.STRING,
+              value: url.href,
+            },
+          }],
+          gref: ID_DIRECTIVE,
+        }
+        continue
+      }
+
+      if (alias && alias !== url.name) {
         args.push({
           kind: Kind.ARGUMENT,
           name: {

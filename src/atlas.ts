@@ -1,6 +1,6 @@
 import recall, { use } from '@protoplasm/recall'
-import { byRef, Defs } from './de';
-import GRef from './gref';
+import { Defs } from './de';
+import GRef, { byGref } from './gref';
 import Schema from './schema';
 
 export class Atlas implements Defs {
@@ -11,7 +11,7 @@ export class Atlas implements Defs {
 
   *definitions(ref?: GRef): Defs {
     if (!ref) return this
-    return yield* byRef(...this.schemas).get(ref) ?? []
+    return yield* byGref(...this.schemas).get(ref) ?? []
   }
 
   *[Symbol.iterator]() {

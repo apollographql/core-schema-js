@@ -1,4 +1,5 @@
 import recall, { use } from '@protoplasm/recall'
+import { groupBy } from './each'
 import LinkUrl from './link-url'
 
 export class GRef {
@@ -36,7 +37,18 @@ export class GRef {
     return graph + (this.name ? `#${this.name}` : '')
   }
 
+  isSchema() { return this.name === '' }
+
   private constructor(public readonly name: string, public readonly graph?: LinkUrl) {}
 }
 
 export default GRef
+
+export interface HasGref {
+  gref: GRef
+}
+
+/**
+ * group detached nodes (or anything with an 'hgref' really )
+ */
+export const byGref = groupBy((node: any): GRef => node?.gref)

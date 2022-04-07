@@ -5,7 +5,7 @@ import GRef from "../gref";
 describe("Linker", () => {
   describe("synthesize", () => {
     const linker = Linker.bootstrap(
-      dir('@link(url: "https://specs.apollo.dev/link/v0.3")')
+      dir('@link(url: "https://specs.apollo.dev/link/v1.0")')
     )!;
 
     it("does not reference a schema by name unless it has a link", () => {
@@ -18,7 +18,7 @@ describe("Linker", () => {
         ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "", import: ["@key"]),
+          <https://specs.apollo.dev/link/v1.0#@>[+] @link(url: "https://specs.apollo.dev/federation", import: ["@key"]),
         ]
       `);
 
@@ -36,7 +36,7 @@ describe("Linker", () => {
         ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", import: ["@key"]),
+          <https://specs.apollo.dev/link/v1.0#@>[+] @link(url: "https://specs.apollo.dev/federation", import: ["@key"]),
         ]
       `);
 
@@ -54,7 +54,7 @@ describe("Linker", () => {
         ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: ["@key"]),
+          <https://specs.apollo.dev/link/v1.0#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: ["@key"]),
         ]
       `);
     });
@@ -84,8 +84,8 @@ describe("Linker", () => {
         ])
       ).toMatchInlineSnapshot(`
         Iterable [
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: ["@key"]),
-          <https://specs.apollo.dev/link/v0.3#@>[+] @link(url: "https://specs.apollo.dev/join", as: "", import: ["Graph", {name: "@type", as: "@joinType"}]),
+          <https://specs.apollo.dev/link/v1.0#@>[+] @link(url: "https://specs.apollo.dev/federation", as: "fed", import: ["@key"]),
+          <https://specs.apollo.dev/link/v1.0#@>[+] @link(url: "https://specs.apollo.dev/join", import: ["Graph", {name: "@type", as: "@joinType"}]),
         ]
       `);
     });

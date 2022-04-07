@@ -1,21 +1,24 @@
 import { replay, report } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, Kind, NamedTypeNode } from 'graphql'
-import { groupBy } from './each'
+import { first } from './each'
 import err from './error'
-import GRef from './gref'
+import GRef, { byGref, HasGref } from './gref'
 import { isAst } from './is'
 import LinkUrl from './link-url'
 
+/**
+ * A reference could not be matched to a definition.
+ * 
+ * @param gref 
+ * @param nodes 
+ * @returns ErrNoDefinition
+ */
 export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
   err('NoDefinition', {
-    message: 'no definitions found for reference',
+    message: `no definitions found for reference: ${gref}`,
     gref,
     nodes
   })
-
-export interface HasGref {
-  gref: GRef
-}
 
 /**
  * A detatched (or denormalized) AST node. Detached nodes have an `gref'
@@ -46,8 +49,17 @@ export type De<T> =
     :
   T
 
-export type Def = De<DefinitionNode>
+export type Def = De<DefinitionNode> | Redirect
 export type Defs = Iterable<Def>
+
+export interface Redirect {
+  code: 'Redirect'
+  gref: GRef
+  toGref: GRef
+  via: DirectiveNode
+}
+
+export const isRedirect = (o: any): o is Redirect => o?.code === 'Redirect'
 
 export type Locatable =
   | DefinitionNode
@@ -58,57 +70,67 @@ export type Located = Locatable & HasGref
 
 
 /**
- * group detached nodes (or anything with an 'hgref' really )
- */
-export const byRef = groupBy(<T extends HasGref>(node: T) => node.gref)
-
-/**
  * Complete `source` definitions with definitions from `atlas`.
  *
- * Emits the set of defs to be added.
+ * Emits the set of defs to be added along with *all* Redirects which were
+ * followed to find them. Callers should use the redirects to update
+ * redirected references to their final location.
  *
  * Reports ErrNoDefinition for any dangling references.
  *
- * @param defs
- * @returns
+ * @param source the source defs which need filling in
+ * @param atlas  all the defs we could fill
+ * @yields denormalized definition nodes and redirects
  */
 export function *fill(source: Defs, atlas?: Defs): Defs {
   const notDefined = new Map<GRef, Locatable[]>()
-  const failed = new Set<GRef>()
-  const added = new Set<GRef>()
-  const atlasDefs = atlas ? byRef(atlas) : null
-
-  const ingest = (defs: Defs) => {
-    for (const node of refNodesIn(defs)) {
-      const defs = byRef(source).get(node.gref)
-      if (!defs && !added.has(node.gref) && node.gref.graph !== LinkUrl.GRAPHQL_SPEC)
-        if (notDefined.has(node.gref))
-          notDefined.get(node.gref)!.push(node)
-        else
-          notDefined.set(node.gref, [node])
-    }
-  }
+  const seen = new Set<GRef>(byGref(onlyDefinitions(source)).keys())
+  const atlasDefs = atlas ? byGref(atlas) : null
 
   ingest(source)
+
   while (notDefined.size) {
-    const [ref, nodes] = notDefined.entries().next().value
+    const [ref, nodes] = first(notDefined.entries())
     notDefined.delete(ref)
-    if (failed.has(ref) || added.has(ref)) continue
+    if (seen.has(ref)) continue
+    seen.add(ref)
     const defs = atlasDefs?.get(ref)
     if (!defs) {
       report(ErrNoDefinition(ref, ...nodes))
-      failed.add(ref)
-    } else {
-      ingest(defs)
-      added.add(ref)
-      yield* defs
+      continue
     }
+    ingest(defs)
+    yield* defs
+  }
+
+  function ingest(defs: Defs) {
+    for (const node of refNodesIn(defs))
+      if (isRedirect(node))
+        addGref(node.toGref, node.via)
+      else 
+        addGref(node.gref, node)
+  }
+
+  function addGref(gref: GRef, node: Locatable) {
+    if (seen.has(gref) || gref.graph === LinkUrl.GRAPHQL_SPEC)
+      return
+    const existing = notDefined.get(gref)
+    if (existing)
+      existing.push(node)
+    else
+      notDefined.set(gref, [node])
   }
 }
 
-export function *refNodesIn(defs: Defs | Iterable<ASTNode>): Iterable<Located> {
-  for (const def of defs)
-    yield* deepRefs(def)
+function *onlyDefinitions(defs: Defs): Iterable<De<DefinitionNode>> {
+  for (const def of defs) if (!isRedirect(def)) yield def
+}
+
+export function *refNodesIn(defs: Defs | Iterable<ASTNode>): Iterable<Located | Redirect> {
+  for (const def of defs) {
+    if (isRedirect(def)) yield def
+    else yield* deepRefs(def)
+  }
 }
 
 export const deepRefs: (root: ASTNode | ASTNode[]) => Iterable<Located> = replay(
@@ -143,9 +165,8 @@ export function *children<T>(root: T): Iterable<ChildOf<T>> {
   }
 }
 
-export const hasRef = (o?: any): o is { gref: GRef } =>
+export const hasRef = (o?: any): o is HasGref =>
   o?.gref instanceof GRef
-
 
 const LOCATABLE_KINDS = new Set([
   ...Object.values(Kind)
