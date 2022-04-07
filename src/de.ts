@@ -1,5 +1,6 @@
 import { replay, report } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, DirectiveNode, Kind, NamedTypeNode } from 'graphql'
+import { first } from './each'
 import err from './error'
 import GRef, { byGref, HasGref } from './gref'
 import { isAst } from './is'
@@ -71,12 +72,15 @@ export type Located = Locatable & HasGref
 /**
  * Complete `source` definitions with definitions from `atlas`.
  *
- * Emits the set of defs to be added.
+ * Emits the set of defs to be added along with *all* Redirects which were
+ * followed to find them. Callers should use the redirects to update
+ * redirected references to their final location.
  *
  * Reports ErrNoDefinition for any dangling references.
  *
- * @param defs
- * @returns
+ * @param source the source defs which need filling in
+ * @param atlas  all the defs we could fill
+ * @yields denormalized definition nodes and redirects
  */
 export function *fill(source: Defs, atlas?: Defs): Defs {
   const notDefined = new Map<GRef, Locatable[]>()
@@ -84,8 +88,9 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
   const atlasDefs = atlas ? byGref(atlas) : null
 
   ingest(source)
+
   while (notDefined.size) {
-    const [ref, nodes] = notDefined.entries().next().value
+    const [ref, nodes] = first(notDefined.entries())
     notDefined.delete(ref)
     if (seen.has(ref)) continue
     seen.add(ref)
@@ -94,23 +99,20 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
       report(ErrNoDefinition(ref, ...nodes))
       continue
     }
-    seen.add(ref)
     ingest(defs)
     yield* defs
   }
 
   function ingest(defs: Defs) {
-    for (const node of refNodesIn(defs)) {
-      if (isRedirect(node)) {
+    for (const node of refNodesIn(defs))
+      if (isRedirect(node))
         addGref(node.toGref, node.via)
-        continue
-      }
-      addGref(node.gref, node)
-    }
+      else 
+        addGref(node.gref, node)
   }
 
   function addGref(gref: GRef, node: Locatable) {
-    if (seen.has(gref) || gref.graph === LinkUrl.GRAPHQL_SPEC)// || byGref(source).get(gref))
+    if (seen.has(gref) || gref.graph === LinkUrl.GRAPHQL_SPEC)
       return
     const existing = notDefined.get(gref)
     if (existing)

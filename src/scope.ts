@@ -128,7 +128,7 @@ export class Scope implements IScope {
   }
 
   @use(recall)
-  renormalize<T extends ASTNode>(node: De<T>, redirects?: Readonly<Map<GRef, Redirect>>): T {    
+  renormalize<T extends ASTNode>(node: De<T>, redirects?: Readonly<Map<GRef, Redirect>>): T {
     const self = this
     return visit(node, {
       enter<T extends ASTNode>(node: T, _: any, ): T | null | undefined {

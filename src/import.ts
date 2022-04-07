@@ -84,6 +84,7 @@ export class ImportsParser extends Parser {
     const start = this._lexer.token
     const at = this.expectToken(TokenKind.AT)
     if (this.peek(TokenKind.NAME)) {
+      // accept immediately adjacent names only
       const tok = this._lexer.token
       if (tok.line === at.line && tok.column === at.column + 1)
         return this.node<ConstDirectiveNode>(start, {
