@@ -1,5 +1,5 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit } from 'graphql'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit, DefinitionNode } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
 import { refNodesIn, Defs, isLocatable, Locatable, fill, Def, isRedirect } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
@@ -10,7 +10,15 @@ import { isAst } from './is'
 import gql from './gql'
 import LinkUrl from './link-url'
 import {concat} from './each'
-export class Schema implements Defs {  
+export class Schema implements Defs {
+  @use(recall)
+  static fromDefinitions(defs: Iterable<DefinitionNode>, frame: Schema | IScope = Scope.EMPTY) {
+    return this.from({
+      kind: Kind.DOCUMENT,
+      definitions: [...defs]
+    }, frame)
+  }
+  
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
     if (frame instanceof Schema)
       return new this(document, frame.scope)
