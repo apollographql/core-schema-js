@@ -269,13 +269,7 @@ describe("Schema", () => {
         Array [
           [NoDefinition: no definitions found for reference: #SomeUnresolvedType],
           Array [
-            Object {
-              "gref": GRef <#SomeUnresolvedType>,
-              "message": "no definitions found for reference: #SomeUnresolvedType",
-              "nodes": Array [
-                <#SomeUnresolvedType>[subgraph] field: 👉SomeUnresolvedType,
-              ],
-            },
+            <#SomeUnresolvedType>[subgraph] field: 👉SomeUnresolvedType,
           ],
         ],
       ]

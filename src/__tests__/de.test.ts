@@ -62,87 +62,45 @@ describe("fill", () => {
         Array [
           "NoDefinition",
           Array [
-            Object {
-              "gref": GRef <https://specs.apollo.dev/federation/v2.0#@requires>,
-              "message": "no definitions found for reference: https://specs.apollo.dev/federation/v2.0#@requires",
-              "nodes": Array [
-                [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
-              ],
-            },
+            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            Object {
-              "gref": GRef <https://specs.apollo.dev/federation/v2.0#@provides>,
-              "message": "no definitions found for reference: https://specs.apollo.dev/federation/v2.0#@provides",
-              "nodes": Array [
-                [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
-              ],
-            },
+            [example] 👉@link(url: "https://specs.apollo.dev/federation/v2.0",
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            Object {
-              "gref": GRef <https://specs/me#ID>,
-              "message": "no definitions found for reference: https://specs/me#ID",
-              "nodes": Array [
-                <https://specs/me#ID>[example] id: 👉ID!,
-              ],
-            },
+            <https://specs/me#ID>[example] id: 👉ID!,
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            Object {
-              "gref": GRef <https://specs/me#String>,
-              "message": "no definitions found for reference: https://specs/me#String",
-              "nodes": Array [
-                <https://specs/me#String>[example] directive @key(fields: 👉String) on OBJECT,
-              ],
-            },
+            <https://specs/me#String>[example] directive @key(fields: 👉String) on OBJECT,
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            Object {
-              "gref": GRef <https://specs.apollo.dev/link/v1.0#Url>,
-              "message": "no definitions found for reference: https://specs.apollo.dev/link/v1.0#Url",
-              "nodes": Array [
-                <https://specs.apollo.dev/link/v1.0#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
-                <https://specs.apollo.dev/link/v1.0#Url>[builtins.graphql] directive @link(url: 👉link__Url!, as: link__Schema, import: link__Import),
-              ],
-            },
+            <https://specs.apollo.dev/link/v1.0#Url>[builtins.graphql] directive @id(url: 👉link__Url!, as: link__Schema) on SCHEMA,
+            <https://specs.apollo.dev/link/v1.0#Url>[builtins.graphql] directive @link(url: 👉link__Url!, as: link__Schema, import: link__Import),
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            Object {
-              "gref": GRef <https://specs.apollo.dev/link/v1.0#Schema>,
-              "message": "no definitions found for reference: https://specs.apollo.dev/link/v1.0#Schema",
-              "nodes": Array [
-                <https://specs.apollo.dev/link/v1.0#Schema>[builtins.graphql] directive @id(url: link__Url!, as: 👉link__Schema) on SCHEMA,
-                <https://specs.apollo.dev/link/v1.0#Schema>[builtins.graphql] directive @link(url: link__Url!, as: 👉link__Schema, import: link__Import),
-              ],
-            },
+            <https://specs.apollo.dev/link/v1.0#Schema>[builtins.graphql] directive @id(url: link__Url!, as: 👉link__Schema) on SCHEMA,
+            <https://specs.apollo.dev/link/v1.0#Schema>[builtins.graphql] directive @link(url: link__Url!, as: 👉link__Schema, import: link__Import),
           ],
         ],
         Array [
           "NoDefinition",
           Array [
-            Object {
-              "gref": GRef <https://specs.apollo.dev/link/v1.0#Import>,
-              "message": "no definitions found for reference: https://specs.apollo.dev/link/v1.0#Import",
-              "nodes": Array [
-                <https://specs.apollo.dev/link/v1.0#Import>[builtins.graphql] directive @link(url: link__Url!, as: link__Schema, import: 👉link__Import),
-              ],
-            },
+            <https://specs.apollo.dev/link/v1.0#Import>[builtins.graphql] directive @link(url: link__Url!, as: link__Schema, import: 👉link__Import),
           ],
         ],
       ]
@@ -255,9 +213,27 @@ describe("a subgraph test", () => {
       )
     ).toMatchInlineSnapshot(`
       Array [
-        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@requires,
-        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@provides,
-        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@external,
+        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@requires
+
+      subgraph-test.graphql:4:9
+      3 |         @link(url: "https://specs.apollo.dev/link/v1.0")
+      4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
+        |         ^
+      5 |           import: "@key @requires @provides @external"),
+        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@provides
+
+      subgraph-test.graphql:4:9
+      3 |         @link(url: "https://specs.apollo.dev/link/v1.0")
+      4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
+        |         ^
+      5 |           import: "@key @requires @provides @external"),
+        [NoDefinition] no definitions found for reference: https://specs.apollo.dev/federation/v1.0#@external
+
+      subgraph-test.graphql:4:9
+      3 |         @link(url: "https://specs.apollo.dev/link/v1.0")
+      4 |         @link(url: "https://specs.apollo.dev/federation/v1.0",
+        |         ^
+      5 |           import: "@key @requires @provides @external"),
       ]
     `);
   });
