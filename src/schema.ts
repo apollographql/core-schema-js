@@ -179,6 +179,26 @@ export class Schema implements Defs {
     return Schema.from(newDoc, this.scope)
   }
 
+  /**
+   * Return a copy of this schema without external definitions or references to them.
+   * 
+   * `retain`, if provided, is an optional list of external definitions to retain.
+   * `retain` accepts:
+   *   - strings which parse as LinkUrls, e.g. `"https://specs.apollo.dev/tag/v0.2"`.
+   *     this will retain all definitions from that schema
+   *   - already-parsed LinkURLs, which behave the same as above
+   *   - GRefs to particular external definitions, e.g. `GRef.rootDirective("https://specs.apollo.dev/tag/v0.2")`
+   *     this will retain only those definitions and references, and remove all others
+   *     (including others from the same schema)
+   * 
+   * Note that this function removes references and definitions without regards to the
+   * validity of the final schema. If foreign definitions depend on each other
+   * (for example, if `@foreignA__someDirective` takes a `foreignB__Scalar` and
+   * `foreignA` is retained but not `foreignB`), then the result may be invalid.
+   * The output should be validated to ensure correctness.
+   * 
+   * @returns 
+   */
   surface(retain: Iterable<GRef | LinkUrl | string> = new Set()) {
     const retainGrefs = new Set<GRef>()
     const retainLinks = new Set<LinkUrl>()
