@@ -1,7 +1,7 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit, DefinitionNode } from 'graphql'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit, DefinitionNode, ASTVisitor } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refNodesIn, Defs, isLocatable, Locatable, fill, Def, isRedirect } from './de'
+import { refNodesIn, Defs, isLocatable, Locatable, fill, Def, isRedirect, hasRef } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
 import { GRef, byGref } from './gref'
@@ -12,10 +12,10 @@ import LinkUrl from './link-url'
 import {concat} from './each'
 export class Schema implements Defs {
   @use(recall)
-  static fromDefinitions(defs: Iterable<DefinitionNode>, frame: Schema | IScope = Scope.EMPTY) {
+  static fromDefinitions(defs: Defs, frame: Schema | IScope = Scope.EMPTY) {
     return this.from({
       kind: Kind.DOCUMENT,
-      definitions: [...defs]
+      definitions: [...defs].filter(def => !isRedirect(def)) as DefinitionNode[]
     }, frame)
   }
   
@@ -170,6 +170,54 @@ export class Schema implements Defs {
         return undefined
       }
     }), this.scope.parent)
+  }  
+
+  visit(visitor: ASTVisitor) {
+    const newDoc = visit(
+      Schema.fromDefinitions(this, this.frame).document,
+      visitor)
+    return Schema.from(newDoc, this.scope)
+  }
+
+  surface(retain: Iterable<GRef | LinkUrl | string> = new Set()) {
+    const retainGrefs = new Set<GRef>()
+    const retainLinks = new Set<LinkUrl>()
+    // resolve all redirects
+    // this lets us specify retained definitions as either
+    // their global graph references, or their local names within
+    // this schema
+    for (const retained of retain) {      
+      if (typeof retained === 'string' || retained instanceof LinkUrl) { 
+        const url = LinkUrl.from(retained)        
+        if (url) retainLinks.add(url)
+        continue
+      }      
+      retainGrefs.add(retained)
+      // if a retained gref was redirected in this schema, retain
+      // its redirected destination
+      for (const def of this.definitions(retained)) {
+        if (isRedirect(def)) {
+          retainGrefs.add(def.toGref)
+        }
+      }
+    }
+
+    return this.visit({
+      enter: (node) => {
+        if (hasRef(node)) {
+          const ref = node.gref
+
+          if (ref.graph === this.url // keep our own definitions
+            || retainGrefs.has(ref)  // keep retained grefs
+            || retainLinks.has(ref.graph!) // keep whole retained schemas        
+          ) return
+
+          return null // delete everything else
+        }
+
+        return // don't touch any other nodes
+      }
+    })
   }
 
   dangerousRemoveHeaders(): Schema {
@@ -217,3 +265,4 @@ export const pruneLinks = replay(
     }
   }
 )
+

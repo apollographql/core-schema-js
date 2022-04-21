@@ -20,7 +20,7 @@ export class GraphQLErrorExt<C extends string> extends GraphQLError {
   readonly name: string;
 
   constructor(public readonly code: C, message: string, props?: Props) {
-    super(message, props)
+    super(message, props as any)
     if (props) for (const prop in props)
       if (!GraphQLErrorExt.BASE_PROPS.has(prop)) {
         (this as any)[prop] = (props as any)[prop]
