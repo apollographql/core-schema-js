@@ -136,8 +136,8 @@ export class Schema implements Defs {
     const extras = [...fill(this, atlas)]
     const scope = this.scope.child(including(refNodesIn(extras))).flat
     const header = scope.header()
-    const body = [...pruneLinks(this)]
-    const linkExtras = [...fill(concat(header, body, extras), atlas)]
+    const body = pruneLinks(this)
+    const linkExtras = fill(concat(header, extras), atlas, concat(header, body, extras))
     
     return Schema.from({
       kind: Kind.DOCUMENT,

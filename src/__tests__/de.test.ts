@@ -47,7 +47,7 @@ const schema = Schema.from(
 describe("fill", () => {
   it("fills definitions", () => {
     expect(fill(schema, base)).toMatchInlineSnapshot(`
-      Iterable [
+      Record [
         <https://specs.apollo.dev/id/v1.0#@>[builtins.graphql] 👉directive @id(url: link__Url!, as: link__Schema) on SCHEMA,
         <https://specs.apollo.dev/link/v1.0#@>[builtins.graphql] 👉directive @link(url: link__Url!, as: link__Schema, import: link__Import),
       ]
