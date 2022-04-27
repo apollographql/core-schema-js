@@ -1,8 +1,8 @@
 import recall, { report, use } from '@protoplasm/recall'
 import { ASTNode, DefinitionNode, Kind, SchemaExtensionNode, visit } from 'graphql'
 import { Linker, type Link } from './linker'
-import { De, Defs, hasRef, isLocatable, isLocated, isRedirect, Locatable, Located, Redirect } from './de'
-import GRef from './gref'
+import { Defs, hasRef, isLocatable, isRedirect, Locatable, Located, Redirect } from './de'
+import GRef, { HasGref } from './gref'
 import { isAst, hasName } from './is'
 import LinkUrl from './link-url'
 import { getPrefix, scopeNameFor, toPrefixed } from './names'
@@ -30,10 +30,10 @@ export interface IScope extends Iterable<Link> {
   lookup(name: string): Link | undefined
   visible(): Iterable<[string, Link]>
   entries(): Iterable<[string, Link]>
-  header(): [De<SchemaExtensionNode>] | []
+  header(): [SchemaExtensionNode] | []
   locate(node: Locatable): GRef
   name(node: GRef): [string | null, string] | undefined
-  denormalize<T extends ASTNode>(node: T): De<T>
+  denormalize<T extends ASTNode>(node: T): T & HasGref
   renormalizeDefs(defs: Defs, redirects?: Iterable<Redirect>): Iterable<DefinitionNode>
   child(fn: (scope: IScopeMut) => void): Readonly<IScope>
 }
@@ -94,7 +94,7 @@ export class Scope implements IScope {
     return this.lookup(scopeNameFor(node))?.gref ?? GRef.canon(scopeNameFor(node), this.url)
   }
 
-  header(): [De<SchemaExtensionNode>] | [] {
+  header(): [SchemaExtensionNode] | [] {
     const directives = [...this.linker.synthesize(this)]
     if (directives.length) {
       return [{ kind: Kind.SCHEMA_EXTENSION, directives, gref: GRef.schema(this.url) }]
@@ -113,27 +113,34 @@ export class Scope implements IScope {
   }
 
   @use(recall)
-  denormalize<T extends ASTNode>(node: T): De<T> {
+  denormalize<T extends ASTNode>(node: T): T & { gref: GRef, origin?: LinkUrl } {
     const self = this
     return visit(node, {
-      enter<T extends ASTNode>(node: T, _: any, ): De<T> | undefined {
+      enter<T extends ASTNode>(node: T, _: any, ): (T & { gref: GRef, origin?: LinkUrl }) | undefined {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return
         if (isAst(node, Kind.ENUM_VALUE_DEFINITION)) return
         if (isLocatable(node)) {
-          return { ...node, gref: self.locate(node) } as De<T>
+          return { ...node, gref: self.locate(node), origin: self.url }
         }
         return
       }
-    }) as De<T>
+    }) as T & { gref: GRef, origin?: LinkUrl }
   }
+  
 
   @use(recall)
-  renormalize<T extends ASTNode>(node: De<T>, redirects?: Readonly<Map<GRef, Redirect>>): T {
+  renormalize<T extends ASTNode>(node: T, redirects?: Readonly<Map<GRef, Redirect>>): T {
     const self = this
     return visit(node, {
       enter<T extends ASTNode>(node: T, _: any, ): T | null | undefined {
         if (isAst(node, Kind.INPUT_VALUE_DEFINITION)) return // todo - remove?
-        if (!hasName(node) || !isLocated(node)) return
+        if (!hasName(node) || !hasRef(node)) return
+        if (node.gref.graph === LinkUrl.GRAPHQL_SPEC) {
+          if (node.name.value === node.gref.name) return
+          return { ...node,
+            name: { ...node.name, value: node.gref.name }
+          }
+        }
         const path = self.name(redirect(node.gref, redirects))
         if (!path) return
         return {
@@ -146,7 +153,7 @@ export class Scope implements IScope {
 
   *renormalizeDefs(defs: Defs): Iterable<DefinitionNode> {    
     const redirects = new Map<GRef, Redirect>()
-    const onlyDefs: De<DefinitionNode>[] = []
+    const onlyDefs: DefinitionNode[] = []
     for (const redir of defs) if (isRedirect(redir)) {
       const existing = redirects.get(redir.gref)
       if (existing) {

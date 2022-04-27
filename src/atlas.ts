@@ -1,4 +1,4 @@
-import recall, { use } from '@protoplasm/recall'
+import recall, { replay, use } from '@protoplasm/recall'
 import { Defs } from './de';
 import GRef, { byGref } from './gref';
 import Schema from './schema';
@@ -16,7 +16,15 @@ export class Atlas implements Defs {
 
   *[Symbol.iterator]() {
     for (const schema of this.schemas)
-      yield* schema.definitions()
+      yield* schema
+  }
+
+  @use(replay)
+  *authoritative() {
+    for (const def of this) {
+      if (def.gref && def.origin && (def.origin === def.gref.graph))
+        yield def
+    }
   }
 
   constructor(public readonly schemas: Schema[]) {}

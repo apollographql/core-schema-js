@@ -8,7 +8,6 @@ import {LinkUrl} from './link-url'
 import { GRef, HasGref } from './gref'
 import { scopeNameFor } from './names'
 import { groupBy, maybeOne, only } from './each'
-import { De } from './de'
 import { byName, isAst } from './is'
 import err from './error'
 import gql from './gql'
@@ -203,7 +202,7 @@ export class Linker {
     }    
   }
 
-  *synthesize(links: Iterable<Link>): Iterable<De<ConstDirectiveNode>> {
+  *synthesize(links: Iterable<Link>): Iterable<ConstDirectiveNode> {
     const linksByUrl = byUrl(links)
     const urls = [...linksByUrl.keys()].sort(
       (a, b) =>

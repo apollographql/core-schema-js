@@ -78,6 +78,7 @@ export class Schema implements Defs {
         gref: GRef.named(link.name, scope.url),
         toGref: link.gref,
         via: link.via,
+        origin: this.url
       }
     }
 

@@ -20,42 +20,14 @@ export const ErrNoDefinition = (gref: GRef, ...nodes: ASTNode[]) =>
     nodes
   })
 
-/**
- * A detatched (or denormalized) AST node. Detached nodes have an `gref'
- * property which holds their location within the global graph. This makes them
- * easier to move them between documents, which may have different sets of `@link`
- * directives (and thus different namespaces).
- */
-export type De<T> =
-  T extends (infer E)[]
-    ? De<E>[]
-    :
-  T extends Locatable
-    ? {
-      [K in keyof T]:
-        K extends 'kind' | 'loc'
-          ? T[K]
-          :
-        De<T[K]>
-    } & HasGref
-    :
-  T extends object
-    ? {
-      [K in keyof T]: K extends 'kind' | 'loc'
-        ? T[K]
-        :
-      De<T[K]>
-    }
-    :
-  T
-
-export type Def = De<DefinitionNode> | Redirect
+export type Def = DefinitionNode | Redirect
 export type Defs = Iterable<Def>
 
 export interface Redirect {
   code: 'Redirect'
   gref: GRef
   toGref: GRef
+  origin?: LinkUrl
   via: DirectiveNode
 }
 
@@ -122,7 +94,7 @@ export function *fill(source: Defs, atlas?: Defs): Defs {
   }
 }
 
-function *onlyDefinitions(defs: Defs): Iterable<De<DefinitionNode>> {
+function *onlyDefinitions(defs: Defs): Iterable<DefinitionNode> {
   for (const def of defs) if (!isRedirect(def)) yield def
 }
 
@@ -184,3 +156,143 @@ export function isLocatable(o: any): o is Locatable {
 export function isLocated(o: any): o is Located {
   return isLocatable(o) && hasRef(o)
 }
+
+/**
+ * Attach optional GRefs to AST nodes, representing their position within
+ * the global graph.
+ * 
+ * ASTNodes with GRefs attached are "detached". This makes them
+ * easier to move them between documents, which may have different sets of `@link`
+ * directives (and thus different namespaces). This mechanism lets us collect
+ * a bunch of definitions without regards to their names or the namespaces of
+ * their parent documents, then renormalize them to a particular scope in a
+ * single renormalization pass.
+ */
+declare module "graphql" {
+  interface VariableDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface SchemaDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface OperationDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+
+  interface FragmentDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface ScalarTypeDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface ObjectTypeDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface InputValueDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface InterfaceTypeDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface UnionTypeDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface EnumTypeDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface EnumValueDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface InputObjectTypeDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface DirectiveDefinitionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+
+  interface DirectiveNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+
+  interface ConstDirectiveNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface SchemaExtensionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface ScalarTypeExtensionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface ObjectTypeExtensionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface InterfaceTypeExtensionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface UnionTypeExtensionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface EnumTypeExtensionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface InputObjectTypeExtensionNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface DirectiveNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+  
+  interface NamedTypeNode {
+    gref?: GRef
+    origin?: LinkUrl
+  }
+}
+
+//// the above was generated with this snippet:
+// console.log([...LOCATABLE_KINDS].map(kind =>
+// `interface ${kind}Node {
+//   gref?: GRef
+// }
+// `).join('\n'))
