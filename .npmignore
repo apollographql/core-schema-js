@@ -2,3 +2,4 @@
 .vscode
 generate-errors.js
 jest.config.js
+package-lock.json
