@@ -35,7 +35,7 @@
     "graphql": "^15 || ^16"
   },
   "devDependencies": {
-    "@types/jest": "27.4.1",
+    "@types/jest": "27.5.0",
     "graphql": "16.4.0",
     "jest": "27.5.1",
     "jest-config": "27.5.1",
