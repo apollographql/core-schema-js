@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@1.6.3/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    { "repo": "apollographql/core-schema-js" }
+  ],
+  "commit": false,
+  "access": "public",
+  "baseBranch": "main"
+}
