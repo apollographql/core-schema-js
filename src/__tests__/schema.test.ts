@@ -7,6 +7,7 @@ import Schema from "../schema";
 import { Atlas } from "../atlas";
 import raw from "../snapshot-serializers/raw";
 import { getResult } from "@protoplasm/recall";
+import supergraph from "./supergraph";
 
 const base = Schema.from(
   parse(
@@ -638,6 +639,250 @@ describe("Schema", () => {
         field: Foo
       }"
     `);
+  });
+
+  describe("extracting api surface", () => {
+    it("extracts api surface", () => {
+      expect(raw(Schema.from(supergraph).surface().print()))
+        .toMatchInlineSnapshot(`
+        schema {
+          query: Query
+        }
+
+        type DeliveryEstimates {
+          estimatedDelivery: String
+          fastestDelivery: String
+        }
+
+        type Panda {
+          name: ID!
+          favoriteFood: String
+        }
+
+        type Product implements ProductItf & SkuItf {
+          id: ID!
+          dimensions: ProductDimension
+          delivery(zip: String): DeliveryEstimates
+          sku: String
+          package: String
+          variation: ProductVariation
+          createdBy: User
+        }
+
+        type ProductDimension {
+          size: String
+          weight: Float
+        }
+
+        interface ProductItf implements SkuItf {
+          id: ID!
+          dimensions: ProductDimension
+          delivery(zip: String): DeliveryEstimates
+          sku: String
+          package: String
+          variation: ProductVariation
+          createdBy: User
+        }
+
+        type ProductVariation {
+          id: ID!
+        }
+
+        type Query {
+          allPandas: [Panda]
+          panda(name: ID!): Panda
+          allProducts: [ProductItf]
+          product(id: ID!): ProductItf
+        }
+
+        enum ShippingClass {
+          STANDARD
+          EXPRESS
+          OVERNIGHT
+        }
+
+        interface SkuItf {
+          sku: String
+        }
+
+        type User {
+          email: ID!
+          totalProductsCreated: Int
+          name: String
+        }
+      `);
+    });
+
+    it("retains specified links", () => {
+      expect(
+        raw(
+          Schema.from(supergraph)
+            .surface(["https://specs.apollo.dev/join/v0.2"])
+            .print()
+        )
+      ).toMatchInlineSnapshot(`
+        schema {
+          query: Query
+        }
+
+        directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+        directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+        directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+        directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+        type DeliveryEstimates @join__type(graph: INVENTORY) {
+          estimatedDelivery: String
+          fastestDelivery: String
+        }
+
+        scalar join__FieldSet
+
+        enum join__Graph {
+          INVENTORY @join__graph(name: "inventory", url: "http://inventory:4000/graphql")
+          PANDAS @join__graph(name: "pandas", url: "http://pandas:4000/graphql")
+          PRODUCTS @join__graph(name: "products", url: "http://products:4000/graphql")
+          USERS @join__graph(name: "users", url: "http://users:4000/graphql")
+        }
+
+        type Panda @join__type(graph: PANDAS) {
+          name: ID!
+          favoriteFood: String
+        }
+
+        type Product implements ProductItf & SkuItf @join__implements(graph: INVENTORY, interface: "ProductItf") @join__implements(graph: PRODUCTS, interface: "ProductItf") @join__implements(graph: PRODUCTS, interface: "SkuItf") @join__type(graph: INVENTORY, key: "id") @join__type(graph: PRODUCTS, key: "id") @join__type(graph: PRODUCTS, key: "sku package") @join__type(graph: PRODUCTS, key: "sku variation { id }") {
+          id: ID!
+          dimensions: ProductDimension @join__field(graph: INVENTORY, external: true) @join__field(graph: PRODUCTS)
+          delivery(zip: String): DeliveryEstimates @join__field(graph: INVENTORY, requires: "dimensions { size weight }")
+          sku: String @join__field(graph: PRODUCTS)
+          package: String @join__field(graph: PRODUCTS)
+          variation: ProductVariation @join__field(graph: PRODUCTS)
+          createdBy: User @join__field(graph: PRODUCTS)
+        }
+
+        type ProductDimension @join__type(graph: INVENTORY) @join__type(graph: PRODUCTS) {
+          size: String
+          weight: Float
+        }
+
+        interface ProductItf implements SkuItf @join__implements(graph: PRODUCTS, interface: "SkuItf") @join__type(graph: INVENTORY) @join__type(graph: PRODUCTS) {
+          id: ID!
+          dimensions: ProductDimension
+          delivery(zip: String): DeliveryEstimates @join__field(graph: INVENTORY)
+          sku: String @join__field(graph: PRODUCTS)
+          package: String @join__field(graph: PRODUCTS)
+          variation: ProductVariation @join__field(graph: PRODUCTS)
+          createdBy: User @join__field(graph: PRODUCTS)
+        }
+
+        type ProductVariation @join__type(graph: PRODUCTS) {
+          id: ID!
+        }
+
+        type Query @join__type(graph: INVENTORY) @join__type(graph: PANDAS) @join__type(graph: PRODUCTS) @join__type(graph: USERS) {
+          allPandas: [Panda] @join__field(graph: PANDAS)
+          panda(name: ID!): Panda @join__field(graph: PANDAS)
+          allProducts: [ProductItf] @join__field(graph: PRODUCTS)
+          product(id: ID!): ProductItf @join__field(graph: PRODUCTS)
+        }
+
+        enum ShippingClass @join__type(graph: INVENTORY) @join__type(graph: PRODUCTS) {
+          STANDARD
+          EXPRESS
+          OVERNIGHT
+        }
+
+        interface SkuItf @join__type(graph: PRODUCTS) {
+          sku: String
+        }
+
+        type User @join__type(graph: PRODUCTS, key: "email") @join__type(graph: USERS, key: "email") {
+          email: ID!
+          totalProductsCreated: Int
+          name: String @join__field(graph: USERS)
+        }
+      `);
+    });
+
+    it("retains specified directives", () => {
+      expect(
+        raw(
+          Schema.from(supergraph)
+            .surface([GRef.rootDirective("https://specs.apollo.dev/tag/v0.2")])
+            .print()
+        )
+      ).toMatchInlineSnapshot(`
+        schema {
+          query: Query
+        }
+
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+        type DeliveryEstimates {
+          estimatedDelivery: String
+          fastestDelivery: String
+        }
+
+        type Panda {
+          name: ID!
+          favoriteFood: String @tag(name: "nom-nom-nom")
+        }
+
+        type Product implements ProductItf & SkuItf {
+          id: ID! @tag(name: "hi-from-products")
+          dimensions: ProductDimension
+          delivery(zip: String): DeliveryEstimates
+          sku: String
+          package: String
+          variation: ProductVariation
+          createdBy: User
+        }
+
+        type ProductDimension {
+          size: String
+          weight: Float
+        }
+
+        interface ProductItf implements SkuItf {
+          id: ID!
+          dimensions: ProductDimension
+          delivery(zip: String): DeliveryEstimates
+          sku: String
+          package: String
+          variation: ProductVariation
+          createdBy: User
+        }
+
+        type ProductVariation {
+          id: ID!
+        }
+
+        type Query {
+          allPandas: [Panda]
+          panda(name: ID!): Panda
+          allProducts: [ProductItf]
+          product(id: ID!): ProductItf
+        }
+
+        enum ShippingClass {
+          STANDARD
+          EXPRESS
+          OVERNIGHT
+        }
+
+        interface SkuItf {
+          sku: String
+        }
+
+        type User {
+          email: ID! @tag(name: "test-from-users")
+          totalProductsCreated: Int
+          name: String
+        }
+      `);
+    });
   });
 });
 
