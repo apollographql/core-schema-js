@@ -25,4 +25,8 @@ export const directives = replay(
   }
 )
 
+export function hasDirectives(o: any): o is HasDirectives {
+  return Array.isArray(o?.directives)
+}
+
 export default directives

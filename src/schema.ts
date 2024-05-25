@@ -1,7 +1,7 @@
 import recall, { replay, use } from '@protoplasm/recall'
-import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit } from 'graphql'
+import { print, DirectiveNode, DocumentNode, Kind, SchemaDefinitionNode, visit, DefinitionNode, ASTVisitor } from 'graphql'
 import { Maybe } from 'graphql/jsutils/Maybe'
-import { refNodesIn, Defs, isLocatable, Locatable, fill, Def, isRedirect } from './de'
+import { refNodesIn, Defs, isLocatable, Locatable, fill, Def, isRedirect, hasRef } from './de'
 import { id, Link, Linker, LINK_DIRECTIVES } from './linker'
 import directives from './directives'
 import { GRef, byGref } from './gref'
@@ -10,7 +10,15 @@ import { isAst } from './is'
 import gql from './gql'
 import LinkUrl from './link-url'
 import {concat} from './each'
-export class Schema implements Defs {  
+export class Schema implements Defs {
+  @use(recall)
+  static fromDefinitions(defs: Defs, frame: Schema | IScope = Scope.EMPTY) {
+    return this.from({
+      kind: Kind.DOCUMENT,
+      definitions: [...defs].filter(def => !isRedirect(def)) as DefinitionNode[]
+    }, frame)
+  }
+  
   static from(document: DocumentNode, frame: Schema | IScope = Scope.EMPTY) {
     if (frame instanceof Schema)
       return new this(document, frame.scope)
@@ -162,6 +170,74 @@ export class Schema implements Defs {
         return undefined
       }
     }), this.scope.parent)
+  }  
+
+  visit(visitor: ASTVisitor) {
+    const newDoc = visit(
+      Schema.fromDefinitions(this, this.frame).document,
+      visitor)
+    return Schema.from(newDoc, this.scope)
+  }
+
+  /**
+   * Return a copy of this schema without external definitions or references to them.
+   * 
+   * `retain`, if provided, is an optional list of external definitions to retain.
+   * `retain` accepts:
+   *   - strings which parse as LinkUrls, e.g. `"https://specs.apollo.dev/tag/v0.2"`.
+   *     this will retain all definitions from that schema
+   *   - already-parsed LinkURLs, which behave the same as above
+   *   - GRefs to particular external definitions, e.g. `GRef.rootDirective("https://specs.apollo.dev/tag/v0.2")`
+   *     this will retain only those definitions and references, and remove all others
+   *     (including others from the same schema)
+   * 
+   * Note that this function removes references and definitions without regards to the
+   * validity of the final schema. If foreign definitions depend on each other
+   * (for example, if `@foreignA__someDirective` takes a `foreignB__Scalar` and
+   * `foreignA` is retained but not `foreignB`), then the result may be invalid.
+   * The output should be validated to ensure correctness.
+   * 
+   * @returns 
+   */
+  surface(retain: Iterable<GRef | LinkUrl | string> = new Set()) {
+    const retainGrefs = new Set<GRef>()
+    const retainLinks = new Set<LinkUrl>()
+    // resolve all redirects
+    // this lets us specify retained definitions as either
+    // their global graph references, or their local names within
+    // this schema
+    for (const retained of retain) {      
+      if (typeof retained === 'string' || retained instanceof LinkUrl) { 
+        const url = LinkUrl.from(retained)        
+        if (url) retainLinks.add(url)
+        continue
+      }      
+      retainGrefs.add(retained)
+      // if a retained gref was redirected in this schema, retain
+      // its redirected destination
+      for (const def of this.definitions(retained)) {
+        if (isRedirect(def)) {
+          retainGrefs.add(def.toGref)
+        }
+      }
+    }
+
+    return this.visit({
+      enter: (node) => {
+        if (hasRef(node)) {
+          const ref = node.gref
+
+          if (ref.graph === this.url // keep our own definitions
+            || retainGrefs.has(ref)  // keep retained grefs
+            || retainLinks.has(ref.graph!) // keep whole retained schemas        
+          ) return
+
+          return null // delete everything else
+        }
+
+        return // don't touch any other nodes
+      }
+    })
   }
 
   dangerousRemoveHeaders(): Schema {
@@ -209,3 +285,4 @@ export const pruneLinks = replay(
     }
   }
 )
+
